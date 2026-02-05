@@ -238,7 +238,7 @@ export default function AdminReports() {
                     />
                     <Tooltip 
                       cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
-                      formatter={(value: number) => [`${value.toFixed(1)}%`, 'Apply Rate']}
+                      formatter={(value?: number) => [value == null ? '' : `${value.toFixed(1)}%`, 'Apply Rate']}
                     />
                     <Bar 
                       dataKey="applyRate" 

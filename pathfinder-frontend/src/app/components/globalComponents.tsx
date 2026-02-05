@@ -133,6 +133,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
 Textarea.displayName = "Textarea";
 
 // --- Tabs Components ---
+// Context for Active State
 const TabsContext = React.createContext<{ activeTab: string; setActiveTab: (v: string) => void }>({ activeTab: '', setActiveTab: () => {} });
 
 export const Tabs = ({ defaultValue, children, className, ...props }: any) => {
@@ -144,20 +145,30 @@ export const Tabs = ({ defaultValue, children, className, ...props }: any) => {
   );
 };
 
+// Cleaner "Line/Underline" Style List
 export const TabsList = ({ className, children, ...props }: any) => (
-  <div className={cn("inline-flex h-10 items-center justify-center rounded-md bg-slate-100 p-1 text-slate-500", className)} {...props}>
+  <div 
+    className={cn(
+      "flex w-full items-center justify-start border-b border-slate-200 bg-transparent p-0", 
+      className
+    )} 
+    {...props}
+  >
     {children}
   </div>
 );
 
+// Cleaner "Line/Underline" Style Trigger
 export const TabsTrigger = ({ value, className, children, ...props }: any) => {
   const { activeTab, setActiveTab } = React.useContext(TabsContext);
   const isActive = activeTab === value;
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-        isActive ? "bg-white text-slate-950 shadow-sm" : "hover:bg-slate-200/50 hover:text-slate-900",
+        "inline-flex items-center justify-center whitespace-nowrap px-6 py-2.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-b-2",
+        isActive 
+          ? "border-slate-900 text-slate-900" 
+          : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300",
         className
       )}
       onClick={() => setActiveTab(value)}
@@ -172,7 +183,7 @@ export const TabsContent = ({ value, className, children, ...props }: any) => {
   const { activeTab } = React.useContext(TabsContext);
   if (activeTab !== value) return null;
   return (
-    <div className={cn("mt-2 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2", className)} {...props}>
+    <div className={cn("mt-6 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2", className)} {...props}>
       {children}
     </div>
   );

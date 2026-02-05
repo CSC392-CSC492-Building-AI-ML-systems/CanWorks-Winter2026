@@ -17,7 +17,8 @@ export default function AdminDashboardPage() {
         </div>
 
         <Tabs defaultValue="reports" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          {/* Updated TabsList to be cleaner without grid constraints */}
+          <TabsList className="mb-6">
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               Reports

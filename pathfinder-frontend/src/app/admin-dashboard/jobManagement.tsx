@@ -109,13 +109,13 @@ export default function AdminJobManagement() {
 
   return (
     <Tabs defaultValue="upload" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-3">
+      {/* Updated TabsList to be cleaner without grid constraints */}
+      <TabsList className="mb-6">
         <TabsTrigger value="upload" className="flex items-center gap-2"><Upload className="w-4 h-4" />Upload Jobs</TabsTrigger>
         <TabsTrigger value="sources" className="flex items-center gap-2"><Server className="w-4 h-4" />Job Sources</TabsTrigger>
         <TabsTrigger value="insights" className="flex items-center gap-2"><Lightbulb className="w-4 h-4" />Career Insights</TabsTrigger>
       </TabsList>
 
-      {/* Upload Jobs Tab */}
       <TabsContent value="upload" className="space-y-6">
         <Card>
           <CardHeader>
@@ -149,7 +149,6 @@ export default function AdminJobManagement() {
           </CardContent>
         </Card>
 
-        {/* SFTP Configuration */}
         <Card>
             <CardHeader>
             <CardTitle className="flex items-center gap-2"><Server className="w-5 h-5" />SFTP Configuration</CardTitle>
@@ -188,7 +187,6 @@ export default function AdminJobManagement() {
         </Card>
       </TabsContent>
 
-      {/* Job Sources Tab */}
       <TabsContent value="sources" className="space-y-6">
         <Card>
           <CardHeader>
@@ -235,7 +233,6 @@ export default function AdminJobManagement() {
         </Card>
       </TabsContent>
 
-      {/* Career Insights Tab */}
       <TabsContent value="insights" className="space-y-6">
         <Card>
             <CardHeader>
