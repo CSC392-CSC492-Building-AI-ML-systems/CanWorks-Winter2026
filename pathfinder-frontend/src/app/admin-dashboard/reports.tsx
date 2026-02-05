@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
-// Updated imports to use the single widgets file
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button } from '@/app/components/globalComponents';
 import { AlertTriangle, TrendingUp, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -27,8 +26,14 @@ interface CategoryStats {
 export default function AdminReports() {
   const [isCheckingLinks, setIsCheckingLinks] = useState(false);
   const [lastLinkCheck, setLastLinkCheck] = useState(new Date('2026-01-27T10:30:00'));
+  
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Logic: Mock Data Generation
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Mock Data
   const deadLinks: DeadLink[] = [
     { jobId: '8', jobTitle: 'DevOps Intern', company: 'InfraTech', url: 'https://infratech.com/careers', lastChecked: new Date('2026-01-27T10:30:00'), statusCode: 404, datePosted: new Date('2026-01-17') },
     { jobId: '12', jobTitle: 'Marketing Analyst Co-op', company: 'BrandFlow', url: 'https://brandflow.com/jobs/analyst', lastChecked: new Date('2026-01-27T10:30:00'), statusCode: 403, datePosted: new Date('2026-01-15') },
@@ -46,12 +51,10 @@ export default function AdminReports() {
     { category: 'Mechanical Engineering', totalJobs: 43, totalViews: 3210, totalApplies: 865, applyRate: 26.9 },
   ];
 
-  // Logic: Data Sorting
   const topCategories = [...categoryStats]
     .sort((a, b) => b.applyRate - a.applyRate)
     .slice(0, 6);
 
-  // Actions
   const handleCheckLinks = () => {
     setIsCheckingLinks(true);
     setTimeout(() => {
@@ -60,7 +63,6 @@ export default function AdminReports() {
     }, 2000);
   };
 
-  // Helpers
   const getStatusBadgeColor = (statusCode: number) => {
     if (statusCode === 404) return 'bg-red-100 text-red-800';
     if (statusCode === 403) return 'bg-orange-100 text-orange-800';
@@ -71,9 +73,28 @@ export default function AdminReports() {
   const formatDate = (date: Date) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
   const formatDateTime = (date: Date) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
 
+  // Custom Tick Component for precise control
+  const CustomXAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          x={0}
+          y={0}
+          dy={16}
+          textAnchor="end"
+          fill="#666"
+          transform="rotate(-45)"
+          fontSize={12}
+        >
+          {payload.value}
+        </text>
+      </g>
+    );
+  };
+
   return (
     <div className="space-y-6">
-       {/* Overview Stats */}
        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="pb-3">
@@ -115,7 +136,6 @@ export default function AdminReports() {
           </Card>
         </div>
 
-        {/* Dead Links Section */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -130,7 +150,7 @@ export default function AdminReports() {
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-gray-500">
-                  Last checked: {formatDateTime(lastLinkCheck)}
+                  Last checked: {isMounted ? formatDateTime(lastLinkCheck) : 'Loading...'}
                 </span>
                 <Button
                   onClick={handleCheckLinks}
@@ -163,7 +183,7 @@ export default function AdminReports() {
                         </div>
                         <p className="text-sm text-gray-600 mb-2">{link.company}</p>
                         <p className="text-sm text-gray-500">
-                          Posted: {formatDate(link.datePosted)} • Last checked: {formatDateTime(link.lastChecked)}
+                          Posted: {isMounted ? formatDate(link.datePosted) : ''} • Last checked: {isMounted ? formatDateTime(link.lastChecked) : ''}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -186,7 +206,6 @@ export default function AdminReports() {
           </CardContent>
         </Card>
 
-        {/* Category Apply Rates Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -198,16 +217,41 @@ export default function AdminReports() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-80 mb-8">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topCategories}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} interval={0} fontSize={12} />
-                  <YAxis label={{ value: 'Apply Rate (%)', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip formatter={(value?: number) => [value == null ? '' : `${value.toFixed(1)}%`, 'Apply Rate']} />
-                  <Bar dataKey="applyRate" fill="#3b82f6" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="h-96 mb-8">
+              {isMounted ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={topCategories} 
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis 
+                      dataKey="category" 
+                      interval={0}
+                      tick={<CustomXAxisTick />}
+                      height={100}
+                    />
+                    <YAxis 
+                      label={{ value: 'Apply Rate (%)', angle: -90, position: 'insideLeft', offset: 0 }} 
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+                      formatter={(value: number) => [`${value.toFixed(1)}%`, 'Apply Rate']}
+                    />
+                    <Bar 
+                      dataKey="applyRate" 
+                      fill="#3b82f6" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full w-full flex items-center justify-center bg-gray-50 rounded text-sm text-gray-400">
+                  Loading Chart...
+                </div>
+              )}
             </div>
             
             <div className="border rounded-lg overflow-hidden">
