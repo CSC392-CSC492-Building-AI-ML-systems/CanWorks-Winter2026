@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { GraduationCap } from 'lucide-react';
+import axios from 'axios';
 
 export function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -19,6 +20,7 @@ export function SignUpPage() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     console.log('Submitting:', formData);
+
   }
 
   return (

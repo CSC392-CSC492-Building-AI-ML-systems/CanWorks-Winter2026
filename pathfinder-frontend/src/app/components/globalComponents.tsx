@@ -203,6 +203,53 @@ export const Alert = ({ className, variant = "default", ...props }: React.HTMLAt
   );
 };
 
-export const AlertDescription = ({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-  <div className={cn("text-sm [&_p]:leading-relaxed", className)} {...props} />
-);
+
+// --- Alert Dialog (Modal) Components ---
+const AlertDialogContext = React.createContext<any>(null);
+
+export const AlertDialog = ({ children }: any) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  return <AlertDialogContext.Provider value={{ isOpen, setIsOpen }}>{children}</AlertDialogContext.Provider>;
+};
+
+export const AlertDialogTrigger = ({ children, asChild }: any) => {
+  const { setIsOpen } = React.useContext(AlertDialogContext);
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, { onClick: () => setIsOpen(true) });
+  }
+  return <div onClick={() => setIsOpen(true)}>{children}</div>;
+};
+
+export const AlertDialogContent = ({ children }: any) => {
+  const { isOpen } = React.useContext(AlertDialogContext);
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-lg animate-in zoom-in-95 duration-200">
+        {children}
+      </div>
+    </div>
+  );
+};
+
+export const AlertDialogHeader = ({ children }: any) => <div className="space-y-2 mb-4">{children}</div>;
+export const AlertDialogTitle = ({ children }: any) => <h2 className="text-xl font-bold tracking-tight">{children}</h2>;
+export const AlertDialogDescription = ({ children }: any) => <p className="text-sm text-slate-500 leading-relaxed">{children}</p>;
+export const AlertDialogFooter = ({ children }: any) => <div className="flex justify-end gap-2 mt-6">{children}</div>;
+
+export const AlertDialogCancel = ({ children }: any) => {
+  const { setIsOpen } = React.useContext(AlertDialogContext);
+  return <Button variant="outline" onClick={() => setIsOpen(false)}>{children}</Button>;
+};
+
+export const AlertDialogAction = ({ children, onClick, className }: any) => {
+  const { setIsOpen } = React.useContext(AlertDialogContext);
+  return (
+    <Button 
+      className={className} 
+      onClick={(e) => { if (onClick) onClick(e); setIsOpen(false); }}
+    >
+      {children}
+    </Button>
+  );
+};
