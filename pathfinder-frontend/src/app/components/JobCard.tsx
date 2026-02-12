@@ -79,8 +79,8 @@ export function JobCard({ job, isSaved, onToggleSave }: JobCardProps) {
                 asChild
                 className="shrink-0"
             >
-                <a href={job.applyUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-4 h-4 mr-1" />
+                <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                <ExternalLink className="w-4 h-4" />
                 {job.applySite}
                 </a>
             </Button>

@@ -55,6 +55,14 @@ export interface JobPosting {
     applySite: string;
     datePosted: Date;
     lastRefresh: Date;
+    applicationDeadline?: Date;
+    mode: 'remote' | 'on-site' | 'hybrid';
+    term: 'summer' | 'fall' | 'spring' | 'winter';
+    withPay: boolean;
+    durationMonths: number;
+    studentOrGraduate: 'Student' | 'New Graduate';
+    responsibilities?: string;
+    requirements?: string;
 }
 
 export interface SavedSearch {
