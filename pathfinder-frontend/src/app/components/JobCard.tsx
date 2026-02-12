@@ -1,0 +1,91 @@
+import React from 'react';
+import { Card, Badge, Button } from '@/app/components/globalComponents';
+import { ExternalLink, Bookmark, BookmarkCheck, MapPin, Award } from 'lucide-react';
+import type { JobPosting } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
+
+interface JobCardProps {
+  job: JobPosting;
+  isSaved: boolean;
+  onToggleSave: (jobId: string) => void;
+}
+
+export function JobCard({ job, isSaved, onToggleSave }: JobCardProps) {
+    const typeColors = {
+        'internship': 'bg-blue-100 text-blue-700',
+        'coop': 'bg-purple-100 text-purple-700',
+        'new-grad': 'bg-green-100 text-green-700',
+    };
+
+    return (
+        <Card className="p-6 hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 space-y-3">
+            <div>
+                <h3 className="text-lg mb-1">{job.title}</h3>
+                <p className="text-gray-600">{job.company}</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                <MapPin className="w-4 h-4" />
+                {job.location}
+                </div>
+                {job.coopCredits && (
+                <div className="flex items-center gap-1 text-purple-600">
+                    <Award className="w-4 h-4" />
+                    {job.coopCredits} credits
+                </div>
+                )}
+            </div>
+
+            <p className="text-sm text-gray-700 line-clamp-2">{job.description}</p>
+
+            <div className="flex flex-wrap gap-2">
+                <Badge className={typeColors[job.type]}>
+                {job.type === 'new-grad' ? 'New Grad' : job.type.charAt(0).toUpperCase() + job.type.slice(1)}
+                </Badge>
+                {job.skills.slice(0, 3).map(skill => (
+                <Badge key={skill} variant="outline">{skill}</Badge>
+                ))}
+                {job.skills.length > 3 && (
+                <Badge variant="outline">+{job.skills.length - 3} more</Badge>
+                )}
+            </div>
+
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+                <span>Posted {formatDistanceToNow(job.datePosted, { addSuffix: true })}</span>
+                <span>•</span>
+                <span>Updated {formatDistanceToNow(job.lastRefresh, { addSuffix: true })}</span>
+            </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onToggleSave(job.id)}
+                className="shrink-0"
+            >
+                {isSaved ? (
+                <BookmarkCheck className="w-5 h-5 text-blue-600" />
+                ) : (
+                <Bookmark className="w-5 h-5" />
+                )}
+            </Button>
+
+            <Button
+                size="sm"
+                asChild
+                className="shrink-0"
+            >
+                <a href={job.applyUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4 mr-1" />
+                {job.applySite}
+                </a>
+            </Button>
+            </div>
+        </div>
+        </Card>
+    );
+}

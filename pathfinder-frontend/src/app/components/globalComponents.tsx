@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useState, ReactNode } from "react";
+import Checkbox from "@mui/material/Checkbox";
+import CheckIcon from "@mui/icons-material/Check";
+import { createPortal } from "react-dom";
 import { Loader2 } from 'lucide-react';
 
 // Utility for classes
@@ -72,6 +75,29 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
+// -- CheckBox Component --
+
+export const CheckBox = ({ className, ...props }: React.ComponentProps<typeof Checkbox>) => {
+  return (
+    <Checkbox
+      {...props}
+        disableRipple
+        icon={<span className="size-4 rounded-[4px] border bg-input-background" />}
+        checkedIcon={
+            <span className="size-4 rounded-[4px] border bg-primary text-primary-foreground flex items-center justify-center">
+            <CheckIcon fontSize="inherit" />
+            </span>
+        }
+        indeterminateIcon={
+            <span className="size-4 rounded-[4px] border bg-primary text-primary-foreground flex items-center justify-center">
+            —
+            </span>
+        }
+        className={className}
+    />
+  );
+}
+
 // --- Badge Component ---
 export const Badge = ({ className, variant = "default", ...props }: React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "secondary" | "destructive" | "outline" }) => {
   const variants = {
@@ -132,6 +158,51 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
 );
 Textarea.displayName = "Textarea";
 
+// --- Textarea Component ---
+
+export interface SwitchProps
+    extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    checked?: boolean;
+    defaultChecked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+}
+
+export const Switch = ({ checked, defaultChecked, onCheckedChange, className, disabled = false }: SwitchProps) => {
+    const [internalChecked, setInternalChecked] = useState(defaultChecked || false);
+    const isControlled = checked !== undefined;
+    const currentChecked = isControlled ? checked : internalChecked;
+
+    const handleClick = () => {
+        if (disabled) return;
+        const next = !currentChecked;
+        if (!isControlled) setInternalChecked(next);
+        onCheckedChange?.(next);
+    };
+
+    return (
+        <button
+        type="button"
+        role="switch"
+        aria-checked={currentChecked}
+        onClick={handleClick}
+        disabled={disabled}
+        className={cn(
+            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed",
+            currentChecked ? "bg-primary" : "bg-gray-300",
+            className
+        )}
+        >
+        <span
+            className={cn(
+            "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
+            currentChecked ? "translate-x-5" : "translate-x-1"
+            )}
+        />
+        </button>
+    );
+}
+Switch.displayName = "Switch";
+
 // --- Tabs Components ---
 // Context for Active State
 const TabsContext = React.createContext<{ activeTab: string; setActiveTab: (v: string) => void }>({ activeTab: '', setActiveTab: () => {} });
@@ -191,18 +262,157 @@ export const TabsContent = ({ value, className, children, ...props }: any) => {
 
 // --- Alert Components ---
 export const Alert = ({ className, variant = "default", ...props }: React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "destructive" }) => {
-  return (
-    <div
-      role="alert"
-      className={cn(
-        "relative w-full rounded-lg border px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-slate-950 [&>svg~*]:pl-7",
-        className
-      )}
-      {...props}
-    />
-  );
+    return (
+        <div
+            role="alert"
+            className={cn(
+                "relative w-full rounded-lg border px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-slate-950 [&>svg~*]:pl-7",
+                className
+            )}
+            {...props}
+        />
+    );
 };
 
 export const AlertDescription = ({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-  <div className={cn("text-sm [&_p]:leading-relaxed", className)} {...props} />
+    <div className={cn("text-sm [&_p]:leading-relaxed", className)} {...props} />
 );
+
+// --- AlertDialog Context ---
+interface AlertDialogContextType {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+}
+
+const AlertDialogContext = React.createContext<AlertDialogContextType>({
+    open: false,
+    setOpen: () => {},
+});
+
+// --- Root Component ---
+interface AlertDialogProps {
+    children: ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}
+
+export const AlertDialog = ({ children, open: controlledOpen, onOpenChange }: AlertDialogProps) => {
+    const [open, setOpen] = useState(false);
+    const value = {
+        open: controlledOpen ?? open,
+        setOpen: (o: boolean) => {
+        if (onOpenChange) onOpenChange(o);
+        else setOpen(o);
+        },
+    };
+
+    return <AlertDialogContext.Provider value={value}>{children}</AlertDialogContext.Provider>;
+}
+
+// --- Trigger ---
+interface AlertDialogTriggerProps {
+    children: ReactNode;
+}
+
+export const AlertDialogTrigger = ({ children }: AlertDialogTriggerProps) => {
+    const { setOpen } = React.useContext(AlertDialogContext);
+    return <div onClick={() => setOpen(true)}>{children}</div>;
+}
+
+// --- Portal + Overlay + Content ---
+interface AlertDialogOverlayProps {
+    className?: string;
+}
+
+const AlertDialogOverlay = ({ className }: AlertDialogOverlayProps) => {
+    const { setOpen } = React.useContext(AlertDialogContext);
+
+    return createPortal(
+        <div
+        onClick={() => setOpen(false)}
+        className={cn(
+            "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out",
+            className
+        )}
+        />,
+        document.body
+    );
+}
+
+interface AlertDialogContentProps {
+    children: ReactNode;
+    className?: string;
+}
+
+export const AlertDialogContent = ({ children, className }: AlertDialogContentProps) => {
+    const { open } = React.useContext(AlertDialogContext);
+
+    if (!open) return null;
+
+    return createPortal(
+        <>
+        <AlertDialogOverlay />
+        <div
+            className={cn(
+            "fixed top-1/2 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg",
+            className
+            )}
+        >
+            {children}
+        </div>
+        </>,
+        document.body
+    );
+}
+
+// --- Header, Footer, Title, Description ---
+export const AlertDialogHeader = ({ children, className }: { children: ReactNode; className?: string }) => (
+    <div className={cn("flex flex-col gap-2 text-center sm:text-left", className)}>{children}</div>
+);
+
+export const AlertDialogFooter = ({ children, className }: { children: ReactNode; className?: string }) => (
+    <div className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}>{children}</div>
+);
+
+export const AlertDialogTitle = ({ children, className }: { children: ReactNode; className?: string }) => (
+    <h2 className={cn("text-lg font-semibold", className)}>{children}</h2>
+);
+
+export const AlertDialogDescription = ({ children, className }: { children: ReactNode; className?: string }) => (
+    <p className={cn("text-sm text-gray-600", className)}>{children}</p>
+);
+
+// --- Actions ---
+interface AlertDialogActionProps {
+    children: ReactNode;
+    onClick?: () => void;
+    className?: string;
+}
+
+export const AlertDialogAction = ({ children, onClick, className }: AlertDialogActionProps) => {
+    const { setOpen } = React.useContext(AlertDialogContext);
+    return (
+        <Button
+        onClick={() => {
+            onClick?.();
+            setOpen(false);
+        }}
+        className={cn(className)}
+        >
+        {children}
+        </Button>
+    );
+}
+
+export const AlertDialogCancel = ({ children, className }: { children: ReactNode; className?: string }) => {
+    const { setOpen } = React.useContext(AlertDialogContext);
+    return (
+        <Button
+        variant="outline"
+        onClick={() => setOpen(false)}
+        className={cn(className)}
+        >
+        {children}
+        </Button>
+    );
+}
