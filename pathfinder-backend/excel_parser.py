@@ -45,8 +45,12 @@ def parse_excel_file(file_bytes):
     jobs = []
     errors = []
 
-    for row_num, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2): # skip first row of column names
+    for row_num, row in enumerate(sheet.iter_rows(min_row=3, values_only=True), start=3): # skip first 2 rows of column names
         try:
+            # stop parsing when hit a completely empty row
+            if all(cell is None for cell in row):
+                break
+            
             if not row[1] or not row[3]:
                 errors.append(f"Row {row_num}: Missing title or employer, skipped") # title and employer are not nullable
                 continue
