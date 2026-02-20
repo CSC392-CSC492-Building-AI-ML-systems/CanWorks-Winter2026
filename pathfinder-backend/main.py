@@ -1,8 +1,22 @@
 from fastapi import FastAPI
+from fastapi import UploadFile, File # handle file uploads
+from fastapi import Depends
+from fastapi import Query # Define query parameters with defaults and validation 
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
+from database import engine, get_db, Base
+from models import JobPosting
+from schemas import JobPostingResponse, JobPostingListResponse, UploadResponse
+from excel_parser import parse_excel_file
+from fastapi import HTTPException
 
 app = FastAPI()
-
+"""
+Browsers block requests between different origins by default. 
+Frontend and backend can run on different ports so to the brwoser, these are different origins.
+Middleware allows the communication between the frontend and the backend
+"""
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins (or specify specific URLs)
@@ -11,10 +25,93 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+# Tell SQLAlchemy to look at all classes that inherit from Base (JobPosting model in this case)
+# and create the table in the database if it doesn't already exist
+Base.metadata.create_all(bind=engine)
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None):
-    return {"item_id": item_id, "q": q}
+# Upload endpoint
+# register a POST route
+# response_model tells FastAPI to validate and serialize the return value using Pydantic schema
+@app.post("/api/upload-jobs", response_model=UploadResponse)
+async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db)): # The ... indicates that a file is required
+    contents = await file.read() # read the uploaded file into memory
+    jobs, parse_errors = parse_excel_file(contents)
+
+    jobs_added = 0
+    jobs_skipped = 0
+
+    for job_data in jobs:
+        existing = db.query(JobPosting).filter(JobPosting.dedupe_hash == job_data["dedupe_hash"]).first()
+        if existing:
+            jobs_skipped += 1
+            continue
+
+        db_job = JobPosting(**job_data) # The ** breaks the dictionary representation of each job into keyword arguments. Equivalent to JobPosting(title="...", employer="...", ...)
+        db.add(db_job) # stage the new row
+        jobs_added += 1
+    
+    db.commit() # write all staged rows to the database at once
+
+    return UploadResponse(
+        jobs_added=jobs_added,
+        jobs_skipped=jobs_skipped,
+        errors=parse_errors
+    )
+
+@app.get("/api/jobs", response_model=JobPostingListResponse)
+def get_jobs(
+    page: int=Query(default=1, ge=1), # ge means greater than or equal to ensure page is at least 1
+    page_size: int=Query(default=20, ge=1, le=100), # le means less than or equal to ensure a page doesn't display more than 100 jobs
+    search: str=Query(default=None),
+    job_type: str=Query(default=None),
+    mode: str=Query(default=None),
+    province: str=Query(default=None),
+    target_audience: str=Query(default=None),
+    db: Session=Depends(get_db) # This tells FastAPI that before running get_jobs, call get_db and get a database session back then pass it as the db parameter
+):
+    query = db.query(JobPosting).filter(JobPosting.is_active == True)
+    if search:
+        query = query.filter(
+            or_(
+                JobPosting.title.ilike(f"%{search}%"), # search for substring match
+                JobPosting.employer.ilike(f"%{search}%"),
+                JobPosting.description.ilike(f"%{search}%")
+            )
+        )
+    
+    if job_type:
+        query = query.filter(JobPosting.job_type == job_type)
+    if mode:
+        query = query.filter(JobPosting.mode == mode)
+    if province:
+        query = query.filter(JobPosting.province == province)
+    if target_audience:
+        query = query.filter(JobPosting.target_audience == target_audience)
+    
+    total = query.count()
+    # offset = (page - 1) * page_size
+    # number of jobs displayed in 1 page = page_size
+    jobs = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return JobPostingListResponse(
+        jobs=jobs,
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+# stats endpoint counting active jobs
+@app.get("/api/jobs/stats")
+def get_job_stats(db: Session = Depends(get_db)):
+    total = db.query(JobPosting).filter(JobPosting.is_active == True).count()
+    return {
+        "total_jobs": total
+    }
+
+# Single job endpoint
+@app.get("/api/jobs/{job_id}", response_model=JobPostingResponse)
+def get_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
