@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 // Updated imports to use the single widgets file
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Input, Label, Textarea, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Alert, AlertDescription } from '@/app/components/globalComponents';
 import { Upload, RefreshCw, FileSpreadsheet, Server, CheckCircle2, AlertCircle, Lightbulb, Plus, ExternalLink } from 'lucide-react';
+import axios from 'axios';
 
 interface JobSource {
   id: string;
@@ -35,6 +36,7 @@ export default function AdminJobManagement() {
   const [sftpConfig, setSftpConfig] = useState<SFTPConfig>({ host: '', port: '22', username: '', password: '', path: '/uploads/jobs' });
   const [insightDraft, setInsightDraft] = useState<CareerInsightDraft>({ title: '', category: '', excerpt: '', content: '' });
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success'>('idle');
+  const [uploadResult, setUploadResult] = useState<{jobs_added: number; jobs_skipped: number; errors: string[]} | null>(null); // store response from backend to indicate how many jobs were added, skipped
 
   const [sources, setSources] = useState<JobSource[]>([
     { id: '1', name: 'LinkedIn Jobs API', url: 'https://api.linkedin.com/jobs', lastPull: new Date('2026-01-27T08:00:00'), jobCount: 234, status: 'active' },
@@ -53,16 +55,23 @@ export default function AdminJobManagement() {
     }
   };
 
-  const handleUploadViaUI = () => {
+  // async await function because must wait for server to respond 
+  const handleUploadViaUI = async () => {
     if (!selectedFile) return;
     setUploadStatus('uploading');
-    setTimeout(() => {
+    setUploadResult(null);
+
+    try {
+      // FormData is browser's built-in way to send files over HTTP
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await axios.post('http://127.0.0.1:8000/api/upload-jobs', formData); // invoke the upload endpoint by sending the POST req
+      setUploadResult(response.data);
       setUploadStatus('success');
-      setTimeout(() => {
-        setUploadStatus('idle');
-        setSelectedFile(null);
-      }, 3000);
-    }, 2000);
+    } catch (error) {
+      setUploadStatus('error');
+    }
   };
 
   const handleSFTPUpload = () => {
@@ -132,7 +141,13 @@ export default function AdminJobManagement() {
             {uploadStatus === 'success' && (
               <Alert className="bg-green-50 border-green-200">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">File uploaded successfully! Jobs are being processed.</AlertDescription>
+                <AlertDescription className="text-green-800">
+                  Upload complete! {uploadResult?.jobs_added} jobs added,
+                  {uploadResult?.jobs_skipped} jobs skipped.
+                  {uploadResult?.errors && uploadResult.errors.length > 0 && (
+                    <span>{uploadResult.errors.length} rows had errors.</span>
+                  )}
+                </AlertDescription>
               </Alert>
             )}
 
