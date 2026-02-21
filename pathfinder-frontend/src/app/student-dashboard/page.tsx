@@ -5,10 +5,10 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { BarChart3, Briefcase } from 'lucide-react';
 import AdminReports from '@/app/admin-dashboard/reports';
-import AdminJobManagement from '@/app/admin-dashboard/jobManagement';
+import JobListings from './jobs';
 import StudentDashboardPage from './home';
 
-export default function AdminDashboardPage() {
+export default function StudentDashboardLayout() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4">
@@ -42,15 +42,12 @@ export default function AdminDashboardPage() {
           </TabsContent>
 
           <TabsContent value="explore" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-            <AdminJobManagement />
+            <JobListings />
           </TabsContent>
            <TabsContent value="career-insights" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
             <AdminReports />
           </TabsContent>
 
-          <TabsContent value="profile" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-            <AdminJobManagement />
-          </TabsContent>
         </Tabs>
       </div>
     </div>
