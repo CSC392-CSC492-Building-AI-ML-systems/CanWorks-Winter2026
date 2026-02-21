@@ -1,23 +1,42 @@
 export type UserType = 'student' | 'employer' | 'admin' | 'super-admin';
 
-export interface BaseUser {
+export interface User {
     id: string;
-    email: string;
+    email: string
+    userData: UserData;
+}
+
+export interface StudentUser extends User {
+    userData: StudentUserData;
+}
+
+export interface EmployerUser extends User {
+    userData: EmployerUserData;
+}
+
+export interface AdminUser extends User {
+    userData: AdminUserData;
+}
+export interface SuperAdminUser extends User {
+    userData: SuperAdminUserData;
+}
+
+export interface BaseUserData {
     userType: UserType;
 }
 
-export interface StudentUser extends BaseUser {
+export interface StudentUserData extends BaseUserData {
     userType: 'student';
     university: string;
     graduationMonth: string;
     graduationYear: string;
     lookingFor: ('internship' | 'coop' | 'new-grad')[];
-    coopSchool?: string;
+    coopSchool?: string | null;
     major: string;
     skills: string[];
 }
 
-export interface EmployerUser extends BaseUser {
+export interface EmployerUserData extends BaseUserData {
     userType: 'employer';
     companyName: string;
     contactInfo: {
@@ -30,17 +49,29 @@ export interface EmployerUser extends BaseUser {
     specialNotes: string;
 }
 
-export interface AdminUser extends BaseUser {
+export interface AdminUserData extends BaseUserData {
     userType: 'admin';
-    password: string;
 }
 
-export interface SuperAdminUser extends BaseUser {
+export interface SuperAdminUserData extends BaseUserData {
     userType: 'super-admin';
-    password: string;
 }
 
-export type User = StudentUser | EmployerUser | AdminUser | SuperAdminUser;
+export type UserData = StudentUserData | EmployerUserData | AdminUserData | SuperAdminUserData;
+
+export type UserDataMap = {
+    'student': StudentUserData;
+    'employer': EmployerUserData;
+    'admin': AdminUserData;
+    'super-admin': SuperAdminUserData;
+};
+
+export type UserMap = {
+    'student': StudentUser;
+    'employer': EmployerUser;
+    'admin': AdminUser;
+    'super-admin': SuperAdminUser;
+};
 
 export interface JobPosting {
     id: string;

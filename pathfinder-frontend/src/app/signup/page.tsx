@@ -1,23 +1,15 @@
-"use client";
-import React from "react";
-import axios from "axios";
+import React from 'react';
+import { SignUpPage } from '@/app/components/SignUpPage';
+import { UserProvider, CheckUser } from '@/app/components/authComponents';
 
-
-export default function SigningUp() {
-    async function handleSubmit() {
-        let response = await axios.post("/api/login", {
-            mydata: "This is a test"
-        });
-        console.log(response.data);
-
-        let response2 = await axios.get("http://127.0.0.1:8000/");
-        console.log(response2.data);
-    }
-return (
+export default function App() {
+  return (
     <div className="min-h-screen bg-gray-50">
-        <button
-        onClick={handleSubmit}
-        >Submit</button>
+        <UserProvider>
+            <CheckUser requireUser={false}>
+                <SignUpPage />
+            </CheckUser>
+        </UserProvider>
     </div>
-    );
+  );
 }
