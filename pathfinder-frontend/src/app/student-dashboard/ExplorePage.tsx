@@ -2,30 +2,54 @@ import React, { useState, useEffect } from 'react';
 import { JobCard } from '@/app/components/JobCard';
 import { Card, CheckBox, Label, Input, Button } from '@/app/components/globalComponents';
 import { Search, Bell, BellRing, Mail } from 'lucide-react';
-import type { SavedSearch } from '@/types';
-import { mockJobs } from '@/data/mockData';
+import type { SavedSearch, JobPosting} from '@/types';
+import axios from 'axios';
 
 export function ExplorePage() {
     const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+    const [jobs, setJobs] = useState<JobPosting[]>([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
 
     useEffect(() => {
         const stored = localStorage.getItem('savedJobs');
         if (stored) setSavedJobs(new Set(JSON.parse(stored)));
     }, []);
+    
 
     useEffect(() => {
         const stored = localStorage.getItem('savedSearches');
         if (stored) setSavedSearches(JSON.parse(stored));
     }, []);
 
+     useEffect(() => {
+        fetchJobs();
+    }, [page]);
+
+    const fetchJobs = () => {
+        let url = `http://127.0.0.1:8000/api/jobs?page=${page}&page_size=${pageSize}`;
+
+        axios.get(url).then(
+            response => {
+                response.data.jobs.forEach((job: JobPosting) => {
+                    job.applySite = job.link_to_posting ? new URL(job.link_to_posting).hostname.replace('www.', '').replace('.com', '') : 'Unknown';
+                });
+                setJobs(response.data.jobs);
+                setTotal(response.data.total);
+            }
+        ).catch(
+            error => console.error("Failed to fetch jobs", error)
+        );
+    };
+
     const [filters, setFilters] = useState({
         types: [] as ('internship' | 'coop' | 'new-grad')[],
         keywords: '',
         location: '',
+        mode: [] as ('Remote' | 'On Site' | 'Hybrid')[],
     });
-
-    const [currentSearch, setCurrentSearch] = useState('');
 
     useEffect(() => {
         localStorage.setItem('savedJobs', JSON.stringify(Array.from(savedJobs)));
@@ -78,16 +102,21 @@ export function ExplorePage() {
         );
     };
 
-    const filteredJobs = mockJobs.filter(job => {
-        if (filters.types.length > 0 && !filters.types.includes(job.type)) return false;
-        if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
+    const filteredJobs = jobs.filter(job => {
+        if (filters.types.length > 0 && !filters.types.includes(job.job_type)) return false;
+        const jobLocation = `${job.city}, ${job.province}`.toLowerCase();
+        if (filters.location && !jobLocation.includes(filters.location.toLowerCase())) return false;
+        const jobMode = job.mode.toLowerCase();
+        if (filters.mode.length > 0 && !filters.mode.some(m => jobMode.includes(m.toLowerCase()))) return false;
         if (filters.keywords) {
         const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
-        const jobText = `${job.title} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
+        const jobText = `${job.title} ${job.description} ${job.skills?.join(' ')}`.toLowerCase();
         if (!keywords.some(keyword => jobText.includes(keyword))) return false;
         }
         return true;
     });
+
+    const totalPages = Math.ceil(total / pageSize);
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">

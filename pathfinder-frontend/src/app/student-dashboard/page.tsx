@@ -10,6 +10,7 @@ import { ExplorePage } from './ExplorePage';
 import { CareerInsightsPage } from './CareerInsightsPage';
 import { ProfilePage } from './ProfilePage';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
+import AdminReports from '@/app/admin-dashboard/reports';
 
 export default function StudentDashboardPage() {
     return (

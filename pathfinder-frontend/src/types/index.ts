@@ -76,24 +76,24 @@ export type UserMap = {
 export interface JobPosting {
     id: string;
     title: string;
-    company: string;
-    location: string;
-    type: 'internship' | 'coop' | 'new-grad';
-    coopCredits?: string;
-    description: string;
+    employer: string;
+    province: string | null;
+    city: string | null;
+    posting_date: string | null;
+    application_deadline: string | null;
+    link_to_posting: string | null;
+    mode: 'Remote' | 'On Site' | 'Hybrid';
+    job_type: 'internship' | 'coop' | 'new-grad';
+    target_audience: 'Student' | 'New Graduate';
+    description: string | null;
     skills: string[];
-    applyUrl: string;
     applySite: string;
-    datePosted: Date;
-    lastRefresh: Date;
-    applicationDeadline?: Date;
-    mode: 'remote' | 'on-site' | 'hybrid';
-    term: 'summer' | 'fall' | 'spring' | 'winter';
-    withPay: boolean;
-    durationMonths: number;
-    studentOrGraduate: 'Student' | 'New Graduate';
     responsibilities?: string;
     requirements?: string;
+    duration_months: number;
+    with_pay: boolean;
+    term: 'summer' | 'fall' | 'spring' | 'winter';
+    coopCredits?: string;
 }
 
 export interface SavedSearch {
