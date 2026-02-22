@@ -1,14 +1,19 @@
 'use client'
 
-import { createClient } from '@supabase/supabase-js'
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { AuthError } from '@supabase/supabase-js';
 import { User, UserType, UserData, UserDataMap, UserMap } from '@/types'
 import { createContext, useContext, useEffect, useState } from 'react';
 import { LoadingScreen } from '@/app/components/loadingScreen';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 
-export function convertUser(supaUser: SupabaseUser): User {
+export function convertUser(supaUser: SupabaseUser): User | null {
+    const userData: UserData | null = supaUser.user_metadata?.userData as UserData;
+    if (!userData?.userType) {
+        console.log('Invalid supabase user object received', supaUser)
+        return null;
+    }
     return {
         id: supaUser.id,
         email: supaUser.email || '',
@@ -16,15 +21,19 @@ export function convertUser(supaUser: SupabaseUser): User {
     };
 }
 
+type UserMethodReturn = Promise<{
+    user: User | null,
+    error: AuthError | null
+}>
+
 export interface UserContextType<T extends UserType | undefined = undefined> {
     user: T extends UserType ? UserMap[T] | null : User | null;
     loading: boolean;
-    refreshUser: () => Promise<void>;
-    signUp: (email: string, password: string, userData: UserData) => Promise<User | null>;
-    signIn: (email: string, password: string) => Promise<User | null>;
-    signOut: () => Promise<void>;
-    updateUser: (newUser: Partial<User> & { userData?: Partial<UserData> }) => Promise<User | null>;
-    deleteUser: () => Promise<void>;
+    signUp: (email: string, password: string, userData: UserData) => UserMethodReturn;
+    signIn: (email: string, password: string) => UserMethodReturn;
+    signOut: () => UserMethodReturn;
+    updateUser: (newUser: Partial<User> & { userData?: Partial<UserData> }) => UserMethodReturn;
+    deleteUser: () => UserMethodReturn;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -38,25 +47,7 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchUser = async () => {
-        const { data: { user: supaUser }, error } = await supabase.auth.getUser();
-
-        if (!error && supaUser) {
-            const currentUser: User = convertUser(supaUser);
-            if (!userType || currentUser.userData.userType == userType) {
-                setUser(currentUser);
-            }
-        }
-        setLoading(false);
-    };
-
-    const loadUser = async () => {
-        setLoading(true);
-        await fetchUser();
-        setLoading(false);
-    };
-
-    const signUpContext = async (email: string, password: string, userData: UserData) => {
+    const signUpContext = async (email: string, password: string, userData: UserData): UserMethodReturn => {
         const { data: { user: supaUser }, error } = await supabase.auth.signUp({
             email,
             password,
@@ -68,29 +59,36 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
         });
 
         if (!error && supaUser) {
-            return signInContext(email, password);
+            const newUser = convertUser(supaUser);
+            if (newUser) {
+                setUser(newUser);
+                return {user: newUser, error: error};
+            }
         };
-        return null;
+        return {user: null, error: error};
     };
 
-    const signInContext = async (email: string, password: string) => {
+    const signInContext = async (email: string, password: string): UserMethodReturn => {
         const { data: { user: supaUser }, error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (!error && supaUser) {
             const newUser = convertUser(supaUser);
-            setUser(newUser);
-            return newUser;
+            if (newUser) {
+                setUser(newUser);
+                return {user: newUser, error: error};
+            }
         };
-        return null;
+        return {user: null, error: error};
     };
 
-    const signOutContext = async () => {
+    const signOutContext = async (): UserMethodReturn => {
         const { error } = await supabase.auth.signOut();
         if (!error) setUser(null);
+        return {user: null, error: error};
     };
 
-    const updateUserContext = async (newUser: Partial<User> & { userData?: Partial<UserData> }) => {
-        if (!user) return null;
+    const updateUserContext = async (newUser: Partial<User> & { userData?: Partial<UserData> }): UserMethodReturn => {
+        if (!user) return {user: null, error: new AuthError('No user logged in')};
 
         const payload: { email?: string; data?: { userData?: Partial<UserData> } } = {};
         if (newUser.email) payload.email = newUser.email;
@@ -98,29 +96,80 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
 
         const { data: { user: supaUser }, error } = await supabase.auth.updateUser(payload);
         if (!error && supaUser) {
-            const newUser: User = convertUser(supaUser);
-            setUser(newUser);
-            return newUser;
-        }
-
-        return null;
+            const newUser = convertUser(supaUser);
+            if (newUser) {
+                setUser(newUser);
+                return {user: newUser, error: error};
+            }
+        };
+        return {user: null, error: error};
     };
 
-    const deleteUserContext = async () => {
-        if (!user) return;
-        const { error } = await supabase.auth.admin.deleteUser(user.id);
-        if (!error) setUser(null);
+    const deleteUserContext = async (): UserMethodReturn => {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+            return { user: null, error: new AuthError('No user logged in') };
+        }
+
+
+        const response = await fetch('/api/deleteUser', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+            }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            return { user: null, error: new AuthError(result.error || 'Delete failed') };
+        }
+
+        await supabase.auth.signOut();
+        setUser(null);
+
+        return { user: null, error: null };
     };
 
     useEffect(() => {
-        loadUser();
+
+        const init = async () => {
+            setLoading(true);
+
+            const { data: { user }, error } = await supabase.auth.getUser();
+
+            if (!error && user) {
+                const currentUser = convertUser(user);
+                
+                if (currentUser && (!userType || currentUser.userData.userType === userType)) {
+                    setUser(currentUser);
+                }
+            }
+
+
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(
+                async (_event, session) => {
+                    if (session && session.user) {
+                        setUser(convertUser(session.user));
+                    } else {
+                        setUser(null);
+                    }
+                }
+            );
+
+            setLoading(false);
+            return () => subscription.unsubscribe();
+        };
+
+        init()
     }, [userType]);
 
     return (
         <UserContext.Provider value={{
             user: userType ? (user as T extends UserType ? UserMap[T] | null : User | null) : user,
             loading,
-            refreshUser: loadUser,
             signUp: signUpContext,
             signIn: signInContext,
             signOut: signOutContext,
@@ -150,25 +199,29 @@ export function CheckUser<T extends UserType | undefined = undefined>({children,
 
     useEffect(() => {
         if (!loading) {
+            const currentPath = window.location.pathname;
             if (requireUser == true) {
-                if (!user) {
+                if (!user && currentPath != '/') {
                     router.replace('/');
                 }
             } else if (requireUser == false) {
                 if (user) {
+                    let targetPath = '/';
                     switch (user.userData.userType) {
                         case 'employer':
-                            router.push('/employer-dashboard');
+                            targetPath = '/employer-dashboard';
                             break;
                         case 'admin':
-                            router.push('/admin-dashboard');
+                            targetPath = '/admin-dashboard';
                             break;
                         case 'super-admin':
-                            router.push('/admin-dashboard');
+                            targetPath = '/admin-dashboard';
+                        case 'student':
+                            targetPath = '/student-dashboard';
                             break;
-                        default:
-                            router.push('/student-dashboard');
-                            break;
+                    }
+                    if (targetPath != currentPath) {
+                        router.push(targetPath);
                     }
                 }
             }
@@ -177,11 +230,8 @@ export function CheckUser<T extends UserType | undefined = undefined>({children,
     }, [loading, user, router]);
 
     if (loading) return <div><LoadingScreen></LoadingScreen></div>;
-    if (requireUser == true) {
-        if (!user) return null;
-    } else if (requireUser == false) {
-        if (user) return null;
-    }
+    if (requireUser === true && !user) return null;
+    if (requireUser === false && user) return null;
 
     return <>{children}</>;
 }

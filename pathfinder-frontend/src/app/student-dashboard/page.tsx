@@ -18,8 +18,7 @@ export default function StudentDashboardPage() {
                 <CheckUser requireUser={true}>
                     <div className="max-w-7xl mx-auto px-4">
                         <Header
-                            title={"Student Dashboard"}
-                            description = {"TODO"}
+                            title={"Dashboard"}
                         >
                         </Header>
 
