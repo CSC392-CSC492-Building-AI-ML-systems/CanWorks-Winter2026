@@ -30,19 +30,9 @@ function PrevArrow(props: any) {
   );
 }
 
-export function HomePage() {
+export function HomePage({ totalJobs = 0 }: { totalJobs: number }) {
     const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
-    const [totalJobs, setTotalJobs] = useState<number>(0);
 
-    useEffect(() => {
-        const stored = localStorage.getItem('savedJobs');
-        if (stored) setSavedJobs(new Set(JSON.parse(stored)));
-        axios.get('http://127.0.0.1:8000/api/jobs/stats').then(
-            response => setTotalJobs(response.data.total_jobs)
-        ).catch(
-            error => console.error('Failed to fetch stats', error)
-        );
-    }, []);
 
     useEffect(() => {
         localStorage.setItem('savedJobs', JSON.stringify(Array.from(savedJobs)));

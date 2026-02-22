@@ -3,46 +3,17 @@ import { JobCard } from '@/app/components/JobCard';
 import { Card, CheckBox, Label, Input, Button } from '@/app/components/globalComponents';
 import { Search, Bell, BellRing, Mail } from 'lucide-react';
 import type { SavedSearch, JobPosting} from '@/types';
-import axios from 'axios';
 
-export function ExplorePage() {
+interface ExplorePageProps {
+    jobs: JobPosting[];
+    total: number;
+}
+
+export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
     const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-    const [jobs, setJobs] = useState<JobPosting[]>([]);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
     const pageSize = 10;
-
-    useEffect(() => {
-        const stored = localStorage.getItem('savedJobs');
-        if (stored) setSavedJobs(new Set(JSON.parse(stored)));
-    }, []);
-    
-
-    useEffect(() => {
-        const stored = localStorage.getItem('savedSearches');
-        if (stored) setSavedSearches(JSON.parse(stored));
-    }, []);
-
-     useEffect(() => {
-        fetchJobs();
-    }, [page]);
-
-    const fetchJobs = () => {
-        let url = `http://127.0.0.1:8000/api/jobs?page=${page}&page_size=${pageSize}`;
-
-        axios.get(url).then(
-            response => {
-                response.data.jobs.forEach((job: JobPosting) => {
-                    job.applySite = job.link_to_posting ? new URL(job.link_to_posting).hostname.replace('www.', '').replace('.com', '') : 'Unknown';
-                });
-                setJobs(response.data.jobs);
-                setTotal(response.data.total);
-            }
-        ).catch(
-            error => console.error("Failed to fetch jobs", error)
-        );
-    };
+    const [page, setPage] = useState(1);
 
     const [filters, setFilters] = useState({
         types: [] as ('internship' | 'coop' | 'new-grad')[],
@@ -50,6 +21,16 @@ export function ExplorePage() {
         location: '',
         mode: [] as ('Remote' | 'On Site' | 'Hybrid')[],
     });
+
+    useEffect(() => {
+        const stored = localStorage.getItem('savedJobs');
+        if (stored) setSavedJobs(new Set(JSON.parse(stored)));
+    }, []);
+
+    useEffect(() => {
+        const stored = localStorage.getItem('savedSearches');
+        if (stored) setSavedSearches(JSON.parse(stored));
+    }, []);
 
     useEffect(() => {
         localStorage.setItem('savedJobs', JSON.stringify(Array.from(savedJobs)));
