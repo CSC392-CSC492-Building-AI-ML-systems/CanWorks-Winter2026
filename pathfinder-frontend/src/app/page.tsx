@@ -1,10 +1,15 @@
 import React from 'react';
-import { SignUpPage } from '@/app/components/SignUpPage';
+import { SignInPage } from '@/app/components/SignInPage';
+import { UserProvider, CheckUser } from '@/app/components/authComponents';
 
 export default function App() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <SignUpPage />
+        <UserProvider>
+            <CheckUser requireUser={false}>
+                <SignInPage />
+            </CheckUser>
+        </UserProvider>
     </div>
   );
 }

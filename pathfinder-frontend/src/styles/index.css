@@ -1,0 +1,78 @@
+@import './fonts.css';
+@import './theme.css';
+
+/* React Slick Carousel Styles */
+.slick-slider {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.slick-list {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.slick-track {
+  position: relative;
+  top: 0;
+  left: 0;
+  display: flex;
+}
+
+.slick-slide {
+  display: block;
+  float: left;
+  height: 100%;
+  min-height: 1px;
+}
+
+.slick-slide > div {
+  display: block;
+  height: 100%;
+}
+
+.slick-dots {
+  position: relative;
+  display: flex !important;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.slick-dots li {
+  margin: 0;
+}
+
+.slick-dots li button {
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background-color: #d1d5db;
+  cursor: pointer;
+  font-size: 0;
+  line-height: 0;
+}
+
+.slick-dots li.slick-active button {
+  background-color: #3b82f6;
+  width: 1.5rem;
+}
+
+.slick-dots li button:hover {
+  background-color: #9ca3af;
+}
+
+.slick-dots li.slick-active button:hover {
+  background-color: #2563eb;
+}
