@@ -2,12 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { JobCard } from '@/app/components/JobCard';
 import { Card, CheckBox, Label, Input, Button } from '@/app/components/globalComponents';
 import { Search, Bell, BellRing, Mail } from 'lucide-react';
-import type { SavedSearch } from '@/types';
-import { mockJobs } from '@/data/mockData';
+import type { SavedSearch, JobPosting} from '@/types';
 
-export function ExplorePage() {
+interface ExplorePageProps {
+    jobs: JobPosting[];
+    total: number;
+}
+
+export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
     const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+    const pageSize = 10;
+    const [page, setPage] = useState(1);
+
+    const [filters, setFilters] = useState({
+        types: [] as ('internship' | 'coop' | 'new-grad')[],
+        keywords: '',
+        location: '',
+        mode: [] as ('Remote' | 'On Site' | 'Hybrid')[],
+    });
 
     useEffect(() => {
         const stored = localStorage.getItem('savedJobs');
@@ -18,14 +31,6 @@ export function ExplorePage() {
         const stored = localStorage.getItem('savedSearches');
         if (stored) setSavedSearches(JSON.parse(stored));
     }, []);
-
-    const [filters, setFilters] = useState({
-        types: [] as ('internship' | 'coop' | 'new-grad')[],
-        keywords: '',
-        location: '',
-    });
-
-    const [currentSearch, setCurrentSearch] = useState('');
 
     useEffect(() => {
         localStorage.setItem('savedJobs', JSON.stringify(Array.from(savedJobs)));
@@ -78,16 +83,21 @@ export function ExplorePage() {
         );
     };
 
-    const filteredJobs = mockJobs.filter(job => {
-        if (filters.types.length > 0 && !filters.types.includes(job.type)) return false;
-        if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
+    const filteredJobs = jobs.filter(job => {
+        if (filters.types.length > 0 && !filters.types.includes(job.job_type)) return false;
+        const jobLocation = `${job.city}, ${job.province}`.toLowerCase();
+        if (filters.location && !jobLocation.includes(filters.location.toLowerCase())) return false;
+        const jobMode = job.mode.toLowerCase();
+        if (filters.mode.length > 0 && !filters.mode.some(m => jobMode.includes(m.toLowerCase()))) return false;
         if (filters.keywords) {
         const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
-        const jobText = `${job.title} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
+        const jobText = `${job.title} ${job.description} ${job.skills?.join(' ')}`.toLowerCase();
         if (!keywords.some(keyword => jobText.includes(keyword))) return false;
         }
         return true;
     });
+
+    const totalPages = Math.ceil(total / pageSize);
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">

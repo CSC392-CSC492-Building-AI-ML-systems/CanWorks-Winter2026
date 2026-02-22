@@ -23,13 +23,13 @@ export function JobCard({ job, isSaved, onToggleSave }: JobCardProps) {
             <div className="flex-1 space-y-3">
             <div>
                 <h3 className="text-lg mb-1">{job.title}</h3>
-                <p className="text-gray-600">{job.company}</p>
+                <p className="text-gray-600">{job.employer}</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                 <div className="flex items-center gap-1">
                 <MapPin className="w-4 h-4" />
-                {job.location}
+                {job.city && job.province ? `${job.city}, ${job.province}` : job.city || job.province || 'Remote'}
                 </div>
                 {job.coopCredits && (
                 <div className="flex items-center gap-1 text-purple-600">
@@ -42,21 +42,21 @@ export function JobCard({ job, isSaved, onToggleSave }: JobCardProps) {
             <p className="text-sm text-gray-700 line-clamp-2">{job.description}</p>
 
             <div className="flex flex-wrap gap-2">
-                <Badge className={typeColors[job.type]}>
-                {job.type === 'new-grad' ? 'New Grad' : job.type.charAt(0).toUpperCase() + job.type.slice(1)}
-                </Badge>
-                {job.skills.slice(0, 3).map(skill => (
+                {job.job_type && (
+                    <Badge className={typeColors[job.job_type]}>
+                    {job.job_type === 'new-grad' ? 'New Grad' : job.job_type.charAt(0).toUpperCase() + job.job_type.slice(1)}
+                    </Badge>
+                )}
+                {job.skills?.slice(0, 3).map(skill => (
                 <Badge key={skill} variant="outline">{skill}</Badge>
                 ))}
-                {job.skills.length > 3 && (
+                {job.skills && job.skills.length > 3 && (
                 <Badge variant="outline">+{job.skills.length - 3} more</Badge>
                 )}
             </div>
 
             <div className="flex items-center gap-4 text-xs text-gray-500">
-                <span>Posted {formatDistanceToNow(job.datePosted, { addSuffix: true })}</span>
-                <span>•</span>
-                <span>Updated {formatDistanceToNow(job.lastRefresh, { addSuffix: true })}</span>
+                {job.posting_date && <span>Posted {formatDistanceToNow(new Date(job.posting_date), { addSuffix: true })}</span>}
             </div>
             </div>
 
@@ -79,7 +79,7 @@ export function JobCard({ job, isSaved, onToggleSave }: JobCardProps) {
                 asChild
                 className="shrink-0"
             >
-                <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                <a href={job.link_to_posting || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
                 <ExternalLink className="w-4 h-4" />
                 {job.applySite}
                 </a>

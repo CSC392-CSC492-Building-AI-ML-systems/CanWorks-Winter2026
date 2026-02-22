@@ -4,6 +4,7 @@ import { Card } from '@/app/components/globalComponents';
 import { JobCard } from '@/app/components/JobCard';
 import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mockJobs } from '@/data/mockData';
+import axios from 'axios';
 
 function NextArrow(props: any) {
   const { onClick } = props;
@@ -29,13 +30,9 @@ function PrevArrow(props: any) {
   );
 }
 
-export function HomePage() {
+export function HomePage({ totalJobs = 0 }: { totalJobs: number }) {
     const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        const stored = localStorage.getItem('savedJobs');
-        if (stored) setSavedJobs(new Set(JSON.parse(stored)));
-    }, []);
 
     useEffect(() => {
         localStorage.setItem('savedJobs', JSON.stringify(Array.from(savedJobs)));
@@ -72,10 +69,9 @@ export function HomePage() {
                 <div className="p-2 bg-blue-100 rounded-lg">
                 <BarChart3 className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="text-sm text-gray-600">Applications</h3>
+                <h3 className="text-sm text-gray-600">Job Postings</h3>
             </div>
-            <p className="text-3xl">12</p>
-            <p className="text-sm text-gray-500 mt-1">This month</p>
+            <p className="text-3xl">{totalJobs}</p>
             </Card>
 
             <Card className="p-6">
