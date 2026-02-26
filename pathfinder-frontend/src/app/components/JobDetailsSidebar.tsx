@@ -60,7 +60,7 @@ export default function JobDetailsSidebar({ job, onClose }: Props) {
                     )}
 
                     <div className="pt-2 border-t flex items-center justify-between">
-                        <div className="text-sm text-gray-500">Posted: {job.posted_date ? new Date(job.posted_date).toLocaleDateString() : 'Unknown'}</div>
+                        <div className="text-sm text-gray-500">Posted: {job.posting_date ? new Date(job.posting_date).toLocaleDateString() : 'Unknown'}</div>
                         <a
                             href={job.link_to_posting || '#'}
                             target="_blank"
