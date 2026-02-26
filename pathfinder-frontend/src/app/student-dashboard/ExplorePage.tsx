@@ -3,6 +3,7 @@ import { JobCard } from '@/app/components/JobCard';
 import { Card, CheckBox, Label, Input, Button } from '@/app/components/globalComponents';
 import { Search, Bell, BellRing, Mail } from 'lucide-react';
 import type { SavedSearch, JobPosting} from '@/types';
+import JobDetailsSidebar from '@/app/components/JobDetailsSidebar'; // <--- added import
 
 interface ExplorePageProps {
     jobs: JobPosting[];
@@ -12,6 +13,7 @@ interface ExplorePageProps {
 export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
     const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+    const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null); // <--- added state
     const pageSize = 10;
     const [page, setPage] = useState(1);
 
@@ -223,12 +225,13 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
 
             <div className="space-y-4">
                 {filteredJobs.map(job => (
-                <JobCard
-                    key={job.id}
-                    job={job}
-                    isSaved={savedJobs.has(job.id)}
-                    onToggleSave={toggleSave}
-                />
+                <div key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
+                    <JobCard
+                        job={job}
+                        isSaved={savedJobs.has(job.id)}
+                        onToggleSave={toggleSave}
+                    />
+                </div>
                 ))}
             </div>
 
@@ -241,6 +244,9 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
             )}
             </main>
         </div>
+
+        {/* Sidebar for job details */}
+        <JobDetailsSidebar job={selectedJob} onClose={() => setSelectedJob(null)} />
         </div>
     );
 }
