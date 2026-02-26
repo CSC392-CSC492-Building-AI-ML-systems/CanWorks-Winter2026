@@ -38,12 +38,14 @@ export function SignInPage() {
         setLoading(true);
 
         try {
-            const user = await signIn(formData.email, formData.password);
+            if (!formData.email || !formData.password) {
+                setError("Email and password are required.");
+            }
 
-            if (!user) {
-                setError("Invalid email or password.");
-            } else {
-                router.push("/dashboard"); // change to your route
+            const {user, error} = await signIn(formData.email, formData.password);
+
+            if (error) {
+                setError(error.message);
             }
         } catch (err) {
             setError("Something went wrong. Please try again.");
