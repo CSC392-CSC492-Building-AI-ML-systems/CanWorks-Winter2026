@@ -18,13 +18,13 @@ export default function JobDetailsSidebar({ job, onClose }: Props) {
         >
             {/* overlay */}
             <div
-                className="fixed inset-0 bg-black/40"
+                className="fixed inset-0 bg-transparent z-40" // no darkening; sits under the panel
                 onClick={onClose}
             />
 
             {/* panel */}
             <aside
-                className="ml-auto w-full max-w-md bg-white shadow-xl overflow-y-auto transform transition-transform duration-200"
+                className="ml-auto w-full max-w-md bg-white shadow-xl overflow-y-auto transform transition-transform duration-200 z-50 pointer-events-auto"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="p-4 border-b flex items-center justify-between">
