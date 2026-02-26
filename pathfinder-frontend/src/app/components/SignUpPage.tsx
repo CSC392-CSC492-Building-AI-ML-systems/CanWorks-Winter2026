@@ -19,22 +19,25 @@ export function SignUpPage() {
     const { user, signUp } = useUser();
     const [userType, setUserType] = useState<UserType>('student');
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
     async function handleSignUp(email: string, password: string, userData: UserData) {
         setError(null);
+        setSuccess(null);
         setLoading(true);
 
         try {
             if (!email || !password) {
-                throw new Error("Email and password are required.");
+                setError("Email and password are required.");
             }
 
-            const user: User | null = await signUp(email, password, userData);
-            if (!user) {
-                setError("Invalid email or password.");
-            } else {
+            const {user, error} = await signUp(email, password, userData);
 
+            if (error) {
+                setError(error.message);
+            } else if (user) {
+                setSuccess('Account created successfully! Please check your email to verify your account.')
             }
         } catch (err: any) {
             setError("Something went wrong.");
@@ -171,6 +174,14 @@ export function SignUpPage() {
                     <Alert className="mb-4 border-red-500 bg-red-50">
                         <AlertDescription className="text-red-700">
                         {error}
+                        </AlertDescription>
+                    </Alert>
+                    )}
+
+                    {success && (
+                    <Alert className="mb-4 border-green-500 bg-green-50">
+                        <AlertDescription className="text-green-700">
+                        {success}
                         </AlertDescription>
                     </Alert>
                     )}
