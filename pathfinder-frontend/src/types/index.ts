@@ -131,3 +131,77 @@ export interface EmployerPermissions {
     lastActive: Date;
     memberSince: Date;
 }
+
+export interface JobDescriptionSkill {
+    skill_id: string;
+    skill_name: string;
+    skill_type: 'required' | 'preferred';
+}
+
+export interface JobDescription {
+    id: string;
+    user_id: string;
+    template_id: string | null;
+    job_title: string;
+    industry: string | null;
+    job_function: string | null;
+    seniority_level: string | null;
+    employment_type: string | null;
+    location_type: 'Remote' | 'Hybrid' | 'Onsite' | null;
+    location_city: string | null;
+    location_province: string | null;
+    job_description: string | null;
+    responsibilities: string[] | null;
+    qualifications: string | null;
+    compensation_min: number | null;
+    compensation_max: number | null;
+    compensation_currency: string;
+    application_deadline: string | null;
+    status: 'draft' | 'published';
+    skills: JobDescriptionSkill[];
+    created_at: string | null;
+    updated_at: string | null;
+    published_at: string | null;
+}
+
+export interface Template {
+    id: string;
+    template_name: string;
+    industry: string;
+    job_title: string;
+    seniority_level: string;
+    employment_type: string;
+    province: string | null;
+    city: string | null;
+    job_description: string | null;
+    responsibilities: string[] | null;
+    qualifications: string | null;
+    compensation_min: number | null;
+    compensation_max: number | null;
+}
+
+export interface SkillOption {
+    id: string;
+    skill_name: string;
+    skill_category: string | null;
+}
+
+export interface JobDescriptionFormData {
+    job_title: string;
+    industry: string;
+    job_function: string;
+    seniority_level: string;
+    employment_type: string;
+    location_type: string;
+    location_city: string;
+    location_province: string;
+    job_description: string;
+    responsibilities: string[];
+    required_skills: { skill_id: string; skill_name: string }[];
+    preferred_skills: { skill_id: string, skill_name: string }[];
+    qualifications: string;
+    compensation_min: number | null;
+    compensation_max: number | null;
+    compensation_currency: string;
+    application_deadline: string;
+}

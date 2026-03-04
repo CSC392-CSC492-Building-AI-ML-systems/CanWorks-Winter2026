@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '@/app/lib/supabase';
 
 // Determine if we're running in development/localhost mode
 const isLocalhost = typeof window !== 'undefined' && 
@@ -23,11 +24,11 @@ const fastAxiosInstance = axios.create({
 
 
 fastAxiosInstance.interceptors.request.use(
-  (config) => {
-    // Add auth token if available
-    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    // get the current session token from Supabase
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     }
     return config;
   },
@@ -42,11 +43,6 @@ fastAxiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken');
-      }
-    }
     return Promise.reject(error);
   }
 );
