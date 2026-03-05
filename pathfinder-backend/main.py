@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import JobPosting, SavedJob
+from models import JobPosting, SavedJob, JobSkill, Skill
 from schemas import JobPostingResponse, JobPostingListResponse, UploadResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
 from excel_parser import parse_excel_file
@@ -79,6 +79,7 @@ def get_jobs(
     mode: str=Query(default=None),
     province: str=Query(default=None),
     target_audience: str=Query(default=None),
+    skills: str=Query(default=None),  # comma-separated skill names
     db: Session=Depends(get_db) # This tells FastAPI that before running get_jobs, call get_db and get a database session back then pass it as the db parameter
 ):
     query = db.query(JobPosting).filter(JobPosting.is_active == True)
@@ -100,11 +101,18 @@ def get_jobs(
     if target_audience:
         query = query.filter(JobPosting.target_audience == target_audience)
     
+    # skill filtering
+    if skills:
+        skill_list = [s.strip() for s in skills.split(',') if s.strip()]
+        if skill_list:
+            # join through JobSkill and Skill
+            query = query.join(JobSkill).join(Skill).filter(Skill.skill_name.in_(skill_list))
+    
     total = query.count()
     # offset = (page - 1) * page_size
     # number of jobs displayed in 1 page = page_size
-    jobs = query.offset((page - 1) * page_size).limit(page_size).all()
-
+    jobs = query.options(joinedload(JobPosting.job_skills).joinedload(JobSkill.skill)).offset((page - 1) * page_size).limit(page_size).all()
+    
     return JobPostingListResponse(
         jobs=jobs,
         total=total,

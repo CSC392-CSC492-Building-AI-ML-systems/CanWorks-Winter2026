@@ -36,6 +36,13 @@ class JobPosting(Base): # jobs uploaded by admins via Excel files
     compensation_max = Column(Numeric, nullable=True)
     job_description_id = Column(UUID(as_uuid=True), nullable=True)
 
+    # relationship to link skills
+    job_skills = relationship("JobSkill", back_populates="job", cascade="all, delete-orphan")
+    # read-only convenience property for skill names
+    @property
+    def skills(self):
+        return [js.skill.skill_name for js in self.job_skills]
+
     # metadata
     dedupe_hash = Column(String, unique=True, index=True) # index=True to create a db index so lookups by hash are fast
     is_active = Column(Boolean, default=True)
@@ -94,6 +101,24 @@ class Skill(Base):
     skill_category = Column(String, nullable=True)
     status = Column(String, default="active")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class JobSkill(Base):
+    __tablename__ = "job_skills"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False)
+    skill_id = Column(UUID(as_uuid=True), ForeignKey("skills.id", ondelete="CASCADE"), nullable=False)
+
+    job = relationship("JobPosting", back_populates="job_skills")
+    skill = relationship("Skill")
+
+class UserSkill(Base):
+    __tablename__ = "user_skills"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, nullable=False, index=True)
+    skill_id = Column(UUID(as_uuid=True), ForeignKey("skills.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    skill = relationship("Skill")
 
 class JobDescription(Base): # jobs that employers create themselves
     __tablename__ = "job_descriptions"

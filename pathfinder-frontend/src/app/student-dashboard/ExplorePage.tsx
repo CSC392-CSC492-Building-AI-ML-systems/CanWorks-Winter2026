@@ -5,6 +5,8 @@ import { Search, Bell, BellRing, Mail } from 'lucide-react';
 import type { SavedSearch, JobPosting} from '@/types';
 import JobDetailsSidebar from '@/app/components/JobDetailsSidebar'; // <--- added import
 import { useSavedJobs } from "@/app/hooks/useSavedJobs";
+import { useUser } from '@/app/components/authComponents';
+import { SkillMultiSelect } from '@/app/components/SkillMultiSelect';
 
 interface ExplorePageProps {
     jobs: JobPosting[];
@@ -25,6 +27,17 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
         mode: [] as ('Remote' | 'On Site' | 'Hybrid')[],
         paymentTypes: [] as ('paid' | 'unpaid')[],
     });
+    // service-level skill filters (initialized from user profile later)
+    const [skillFilters, setSkillFilters] = useState<string[]>([]);
+
+    const { user } = useUser<'student'>();
+
+    // prepopulate skill filters from user profile
+    useEffect(() => {
+        if (user?.userData?.skills) {
+            setSkillFilters(user.userData.skills);
+        }
+    }, [user]);
 
 
     useEffect(() => {
@@ -93,6 +106,11 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
         if (filters.paymentTypes.length > 0) {
             const jobPaymentType = job.with_pay ? 'paid' : 'unpaid';
             if (!filters.paymentTypes.includes(jobPaymentType)) return false;
+        }
+        if (skillFilters.length > 0) {
+            // job.skills may be undefined
+            const has = job.skills?.some(s => skillFilters.includes(s));
+            if (!has) return false;
         }
         if (filters.keywords) {
         const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
@@ -199,6 +217,8 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                             checked={filters.paymentTypes.includes('paid')}
                             onChange={() => togglePaymentType('paid')}
                         />
+                    
+                        
                         <Label htmlFor="filter-paid" className="cursor-pointer">Paid</Label>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -221,6 +241,16 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                         placeholder="Skills, keywords"
                     />
                     <p className="text-xs text-gray-500">Separate with commas</p>
+                    </div>
+
+                    {/* skill filter */}
+                    <div className="mt-6">
+                        <SkillMultiSelect
+                            selectedSkills={skillFilters}
+                            onSkillsChange={setSkillFilters}
+                            placeholder="Filter by skill..."
+                            label="Skills"
+                        />
                     </div>
 
                     <div className="space-y-2">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Label, CheckBox, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/app/components/globalComponents';
 import { User, Mail, GraduationCap, Briefcase, Award, Trash2 } from 'lucide-react';
+import { SkillMultiSelect } from '../components/SkillMultiSelect'; 
 import type { StudentUser, StudentUserData } from '@/types';
 import { useUser} from '@/app/components/authComponents';
 
@@ -18,7 +19,7 @@ interface StudentFormData {
     graduationMonth: string;
     graduationYear: string;
     major: string;
-    skills: string;
+    skills?: string[];
 }
 
 export function ProfilePage() {
@@ -30,10 +31,10 @@ export function ProfilePage() {
         graduationMonth: '',
         graduationYear: '',
         major: '',
-        skills: '',
     });
     const [lookingFor, setLookingFor] = useState<('internship' | 'coop' | 'new-grad')[]>([]);
     const [coopSchool, setCoopSchool] = useState('');
+    const [skills, setSkills] = useState<string[]>([]);
 
     useEffect(() => {
         if (user) {
@@ -43,11 +44,11 @@ export function ProfilePage() {
                 graduationMonth: user.userData?.graduationMonth || '',
                 graduationYear: user.userData?.graduationYear || '',
                 major: user.userData?.major || '',
-                skills: user.userData?.skills.join(', ') || '',
             });
 
             setLookingFor(user.userData?.lookingFor || []);
             setCoopSchool(user.userData?.coopSchool || '');
+            setSkills(user.userData?.skills || []);
         }
     }, [user]);
 
@@ -63,7 +64,7 @@ export function ProfilePage() {
                 lookingFor,
                 coopSchool: lookingFor.includes('coop') ? coopSchool : undefined,
                 major: formData.major,
-                skills: formData.skills.split(',').map(s => s.trim()).filter(Boolean),
+                skills: skills,
             }
         });
         setIsEditing(false);
@@ -214,14 +215,12 @@ export function ProfilePage() {
                             </div>
                         )}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="skills">Skills (comma-separated)</Label>
-                            <Input
-                            id="skills"
-                            value={formData.skills}
-                            onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                            />
-                        </div>
+                        <SkillMultiSelect
+                            selectedSkills={skills}
+                            onSkillsChange={setSkills}
+                            label="Skills"
+                            placeholder="Search and select your skills..."
+                        />
                         </form>
                     ) : (
                         <div className="space-y-6">
