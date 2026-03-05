@@ -6,9 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import JobPosting, SavedJob
+from models import JobPosting, SavedJob, CareerInsight
 from schemas import JobPostingResponse, JobPostingListResponse, UploadResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
+from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
 
@@ -208,3 +209,31 @@ def get_saved_jobs(
     ).all()
 
     return saved_jobs
+
+
+@app.post("/api/create-career-insights", response_model=CareerInsightsResponse)
+def create_career_insights(
+    payload: CareerInsightCreate,
+    db: Session = Depends(get_db)
+):
+    career_insight = CareerInsight(
+        title=payload.title,
+        category=payload.category,
+        excerpt=payload.excerpt,
+        content=payload.content,
+        imageUrl=payload.imageUrl,
+        readTime=payload.readTime,
+        url=payload.url
+    )
+
+    db.add(career_insight)
+    db.commit()
+    db.refresh(career_insight)
+
+    return career_insight
+
+
+@app.get("/api/career-insights", response_model=list[CareerInsightsResponse])
+def get_career_insights(db: Session = Depends(get_db)):
+    insights = db.query(CareerInsight).order_by(CareerInsight.created_at.desc()).all()
+    return insights
