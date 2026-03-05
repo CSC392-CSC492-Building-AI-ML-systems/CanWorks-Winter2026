@@ -22,9 +22,9 @@ Middleware allows the communication between the frontend and the backend
 """
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001"],  # Specify frontend origins
+    allow_origins=["*"],  # Specify frontend origins
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly allow needed methods
+    allow_methods=["*"],  # Explicitly allow needed methods
     allow_headers=["*"],  # Allow all headers including Authorization
 )
 
