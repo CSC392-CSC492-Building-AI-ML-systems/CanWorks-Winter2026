@@ -12,11 +12,14 @@ from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
 
+import json
+
 from routes.job_descriptions import router as job_descriptions_router
 from routes.templates import router as templates_router
 from routes.skills import router as skills_router
 
 from jwt_auth import verify_jwt
+from google import genai
 
 app = FastAPI()
 """
@@ -48,18 +51,59 @@ app.include_router(skills_router)
 async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db)): # The ... indicates that a file is required
     contents = await file.read() # read the uploaded file into memory
     jobs, parse_errors = parse_excel_file(contents)
-
+    
     jobs_added = 0
     jobs_skipped = 0
+
+    client = genai.Client()
+    skills = db.query(Skill).all()
+
+    skill_map = {skill.skill_name: skill.id for skill in skills}
+    skill_names = list(skill_map.keys())
+
+    prompt = f"""
+    You are extracting skills from job descriptions.
+
+    Return ONLY a JSON list of skill names from the provided skill list. 
+    Select the skills that are most relevant to the job description. 
+    If no skills are relevant, return an empty list.
+
+    Rules:
+    - Only return skills that appear in the skill list
+    - Return maximum 10 skills
+    - Return JSON format only
+
+    Example output:
+    ["Python", "SQL", "Docker"]
+
+
+    Skill list:
+    {skill_names}
+    """
 
     for job_data in jobs:
         existing = db.query(JobPosting).filter(JobPosting.dedupe_hash == job_data["dedupe_hash"]).first()
         if existing:
             jobs_skipped += 1
             continue
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview", 
+            contents=prompt + "\n\nJob details:\n" + job_data["description"] + job_data["responsibilities"] + job_data["requirements"]
+            )
+        gemini_skills = json.loads(response.text)
 
         db_job = JobPosting(**job_data) # The ** breaks the dictionary representation of each job into keyword arguments. Equivalent to JobPosting(title="...", employer="...", ...)
         db.add(db_job) # stage the new row
+        db.flush() # flush the staged row to the database so that db_job gets an id assigned (because JobSkill needs the job id as foreign key)
+        for skill_name in gemini_skills:
+            skill_id = skill_map.get(skill_name)
+
+            if skill_id:
+                db.add(JobSkill(
+                    job_id=db_job.id,
+                    skill_id=skill_id
+                ))
+        db.flush()
         jobs_added += 1
     
     db.commit() # write all staged rows to the database at once
@@ -112,7 +156,7 @@ def get_jobs(
     # offset = (page - 1) * page_size
     # number of jobs displayed in 1 page = page_size
     jobs = query.options(joinedload(JobPosting.job_skills).joinedload(JobSkill.skill)).offset((page - 1) * page_size).limit(page_size).all()
-    
+
     return JobPostingListResponse(
         jobs=jobs,
         total=total,
