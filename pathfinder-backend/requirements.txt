@@ -10,3 +10,7 @@ python-jose[cryptography]
 PyJWT
 cryptography
 httpx
+supabase
+requests
+sentence-transformers
+pgvector

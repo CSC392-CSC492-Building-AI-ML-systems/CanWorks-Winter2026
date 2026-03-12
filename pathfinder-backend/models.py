@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, date, timezone
 from sqlalchemy import Column, Integer, String, Text, Boolean, Float, Date, DateTime, JSON, Numeric, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -50,6 +51,8 @@ class JobPosting(Base): # jobs uploaded by admins via Excel files
     # without lambda, the function datetime.now is only invoked once when the table is created, making all entries have the same created_at time
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda:datetime.now(timezone.utc))
+    # dense vector embedding for semantic search (SentenceTransformers -- 384 dims)
+    embedding = Column(Vector(384), nullable=True)
 
 
 class SavedJob(Base):
@@ -70,6 +73,17 @@ class SavedJob(Base):
     )
 
     # Lets you access saved_job.job
+    job = relationship("JobPosting")
+
+
+class JobEvent(Base):
+    __tablename__ = "job_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=False, index=True)
+    job_id = Column(Integer, ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String, nullable=False)  # e.g., 'view', 'save', 'apply'
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
     job = relationship("JobPosting")
 
 
@@ -157,4 +171,72 @@ class JobDescriptionSkill(Base): # Relationship table connecting Skill and JobDe
     created_at = Column(DateTime, default=lambda:datetime.now(timezone.utc))
     job_description = relationship("JobDescription", back_populates="skills")
     skill = relationship("Skill")
+
+
+class Application(Base):
+    __tablename__ = "applications"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_user_id = Column(String, nullable=False, index=True)
+    job_description_id = Column(UUID(as_uuid=True), ForeignKey("job_descriptions.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String, default="pending")  # pending, reviewing, interview, offer, rejected, hired
+    student_name = Column(String, nullable=True)
+    student_email = Column(String, nullable=True)
+    university = Column(String, nullable=True)
+    major = Column(String, nullable=True)
+    graduation_year = Column(String, nullable=True)
+    relevant_experience = Column(Text, nullable=True)
+    resume_url = Column(String, nullable=True)
+    resume_filename = Column(String, nullable=True)
+    applied_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint("student_user_id", "job_description_id", name="unique_student_application"),
+    )
+
+    job_description = relationship("JobDescription")
+
+
+class ClickEvent(Base):
+    __tablename__ = "click_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=True, index=True)
+    job_id = Column(Integer, nullable=True)
+    job_type = Column(String, nullable=True)
+    url = Column(String, nullable=False)
+    clicked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class UserVisit(Base):
+    __tablename__ = "user_visits"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=False, index=True)
+    visited_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class FeedLog(Base):
+    __tablename__ = "feed_logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    jobs_added = Column(Integer, default=0)
+    jobs_skipped = Column(Integer, default=0)
+    errors = Column(JSON, nullable=True)
+    uploaded_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class CareerInsight(Base):
+    __tablename__ = "career_insights"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    excerpt = Column(Text, nullable=True)
+    content = Column(Text, nullable=True)
+    articleLink = Column(String, nullable=True)
+    imageUrl = Column(String, nullable=True)
+    readTime = Column(String, nullable=True)
+    status = Column(String, default="published")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

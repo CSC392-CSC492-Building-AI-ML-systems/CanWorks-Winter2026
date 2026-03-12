@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
-from models import Skill, UserSkill
-from schemas import SkillSearchResponse, UserSkillCreate, UserSkillListResponse, UserSkillResponse
+from models import Skill, UserSkill, JobSkill, JobPosting
+from schemas import SkillSearchResponse, UserSkillCreate, UserSkillListResponse, UserSkillResponse, SkillResponse, SkillCreate
 from jwt_auth import verify_jwt
 
 router = APIRouter(prefix="/api/skills", tags=["Skills"]) # create a router
@@ -16,6 +16,24 @@ def search_skills(q: str = Query(default=""), db: Session = Depends(get_db)):
         query = query.filter(Skill.skill_name.ilike(f"%{q}%"))
     skills = query.limit(20).all()
     return SkillSearchResponse(skills=skills)
+
+
+@router.post("", response_model=SkillResponse)
+def create_skill(data: SkillCreate, db: Session = Depends(get_db)):
+    existing = db.query(Skill).filter(
+        Skill.skill_name.ilike(data.skill_name.strip())
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Skill already exists")
+
+    skill = Skill(
+        skill_name=data.skill_name.strip(),
+        skill_category=data.skill_category or "Custom"
+    )
+    db.add(skill)
+    db.commit()
+    db.refresh(skill)
+    return skill
 
 # Get all active skills
 @router.get("/all", response_model=SkillSearchResponse)

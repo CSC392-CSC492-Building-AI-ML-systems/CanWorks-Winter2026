@@ -1,20 +1,28 @@
+import os
 from fastapi import FastAPI
 from fastapi import UploadFile, File # handle file uploads
 from fastapi import Depends
-from fastapi import Query # Define query parameters with defaults and validation 
+from fastapi import Query # Define query parameters with defaults and validation
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import JobPosting, SavedJob, JobSkill, Skill
-from schemas import JobPostingResponse, JobPostingListResponse, UploadResponse
+from models import JobPosting, SavedJob, CareerInsight, JobDescription, FeedLog, JobEvent, JobSkill, Skill
+from schemas import JobPostingResponse, JobPostingListResponse, UploadResponse, JobDescriptionListResponse, JobDescriptionResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
+from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from schemas import JobEventCreate
 
 from routes.job_descriptions import router as job_descriptions_router
 from routes.templates import router as templates_router
 from routes.skills import router as skills_router
+from routes.applications import router as applications_router
+from routes.analytics import router as analytics_router
+from upload_images import upload_career_images
 
 from jwt_auth import verify_jwt
 
@@ -36,10 +44,21 @@ app.add_middleware(
 # and create the table in the database if it doesn't already exist
 Base.metadata.create_all(bind=engine)
 
+# Load embedding model (SentenceTransformers) once at startup
+_embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+def embed_text(text: str):
+    if not text:
+        return None
+    vec = _embed_model.encode(text)
+    return vec.tolist()
+
 # include all the routers
 app.include_router(job_descriptions_router)
 app.include_router(templates_router)
 app.include_router(skills_router)
+app.include_router(applications_router)
+app.include_router(analytics_router)
 
 # Upload endpoint
 # register a POST route
@@ -59,10 +78,30 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
             continue
 
         db_job = JobPosting(**job_data) # The ** breaks the dictionary representation of each job into keyword arguments. Equivalent to JobPosting(title="...", employer="...", ...)
+        # compute embedding for job content (title + employer + description)
+        try:
+            text_blob = ' '.join(filter(None, [str(job_data.get('title', '')), str(job_data.get('employer', '')), str(job_data.get('description', ''))]))
+            emb = embed_text(text_blob)
+            if emb is not None:
+                db_job.embedding = emb
+        except Exception:
+            pass
         db.add(db_job) # stage the new row
         jobs_added += 1
     
     db.commit() # write all staged rows to the database at once
+
+    # Record feed log entry
+    feed_log = FeedLog(
+        source=file.filename or "excel_upload",
+        status="success" if not parse_errors else "partial",
+        jobs_added=jobs_added,
+        jobs_skipped=jobs_skipped,
+        errors=parse_errors if parse_errors else None,
+        uploaded_by=None,  # could be enhanced with auth later
+    )
+    db.add(feed_log)
+    db.commit()
 
     return UploadResponse(
         jobs_added=jobs_added,
@@ -216,3 +255,144 @@ def get_saved_jobs(
     ).all()
 
     return saved_jobs
+
+
+@app.post("/api/create-career-insights", response_model=CareerInsightsResponse)
+def create_career_insights(
+    payload: CareerInsightCreate,
+    db: Session = Depends(get_db)
+):
+    career_insight = CareerInsight(
+        title=payload.title,
+        category=payload.category,
+        excerpt=payload.excerpt,
+        content=payload.content,
+        articleLink=payload.articleLink,
+        imageUrl=payload.imageUrl,
+        readTime=payload.readTime,
+    )
+
+    db.add(career_insight)
+    db.commit()
+    db.refresh(career_insight)
+
+    return career_insight
+
+
+@app.post("/api/upload-career-image", response_model=ImageUploadResponse)
+async def upload_career_image(file: UploadFile = File(...)):
+    result = await upload_career_images(file)
+    return ImageUploadResponse(
+        url=result["url"],
+        filename=result["filename"]
+    )
+
+
+@app.get("/api/career-insights", response_model=list[CareerInsightsResponse])
+def get_career_insights(db: Session = Depends(get_db)):
+    insights = db.query(CareerInsight).order_by(CareerInsight.created_at.desc()).all()
+    return insights
+
+
+# Public endpoint for students to browse published employer job descriptions
+@app.get("/api/published-jobs", response_model=JobDescriptionListResponse)
+def get_published_jobs(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    search: str = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    from datetime import date
+
+    query = db.query(JobDescription).filter(
+        JobDescription.status == "published",
+        JobDescription.deleted_at.is_(None),
+    ).filter(
+        (JobDescription.application_deadline.is_(None)) |
+        (JobDescription.application_deadline >= date.today())
+    )
+
+    if search:
+        query = query.filter(
+            or_(
+                JobDescription.job_title.ilike(f"%{search}%"),
+                JobDescription.industry.ilike(f"%{search}%"),
+                JobDescription.job_description.ilike(f"%{search}%"),
+            )
+        )
+
+    query = query.order_by(JobDescription.published_at.desc())
+    total = query.count()
+    jobs = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    # Import the helper from the job_descriptions route to reuse the response builder
+    from routes.job_descriptions import _to_response
+
+    return JobDescriptionListResponse(
+        job_descriptions=[_to_response(j) for j in jobs],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+# -----------------------------
+# POST - Log Job Event (view/save/apply)
+# -----------------------------
+@app.post("/api/job-events")
+def log_job_event(payload: JobEventCreate, user=Depends(verify_jwt), db: Session = Depends(get_db)):
+    user_id = user["sub"]
+
+    # ensure job exists
+    job = db.query(JobPosting).filter(JobPosting.id == payload.job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    event = JobEvent(user_id=user_id, job_id=payload.job_id, event_type=payload.event_type)
+    db.add(event)
+    db.commit()
+    return {"status": "ok"}
+
+
+# -----------------------------
+# GET - Recommendations (content-based)
+# -----------------------------
+@app.get("/api/recommendations", response_model=JobPostingListResponse)
+def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Depends(get_db)):
+    user_id = user["sub"]
+
+    # collect embeddings from saved jobs and recent views
+    saved = db.query(SavedJob).filter(SavedJob.user_id == user_id).all()
+    view_events = db.query(JobEvent).filter(JobEvent.user_id == user_id, JobEvent.event_type == 'view').order_by(JobEvent.created_at.desc()).limit(20).all()
+
+    emb_list = []
+    for s in saved:
+        if s.job and getattr(s.job, 'embedding', None):
+            emb_list.append(np.array(s.job.embedding))
+    for e in view_events:
+        if e.job and getattr(e.job, 'embedding', None):
+            emb_list.append(np.array(e.job.embedding))
+
+    if len(emb_list) == 0:
+        # fallback: return most recent active jobs
+        query = db.query(JobPosting).filter(JobPosting.is_active == True).order_by(JobPosting.created_at.desc()).limit(k).all()
+        total = db.query(JobPosting).filter(JobPosting.is_active == True).count()
+        return JobPostingListResponse(jobs=query, total=total, page=1, page_size=k)
+
+    user_emb = np.mean(np.stack(emb_list, axis=0), axis=0)
+
+    # fetch candidate jobs with embeddings
+    candidates = db.query(JobPosting).filter(JobPosting.is_active == True).all()
+    scored = []
+    for job in candidates:
+        if not getattr(job, 'embedding', None):
+            continue
+        job_emb = np.array(job.embedding)
+        # cosine similarity
+        sim = float(np.dot(user_emb, job_emb) / (np.linalg.norm(user_emb) * np.linalg.norm(job_emb) + 1e-10))
+        scored.append((sim, job))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = [j for _, j in scored[:k]]
+    total = len(scored)
+    return JobPostingListResponse(jobs=top, total=total, page=1, page_size=k)
