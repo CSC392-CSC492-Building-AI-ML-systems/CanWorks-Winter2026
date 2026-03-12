@@ -22,6 +22,8 @@ export default function StudentDashboardPage() {
 
     useEffect(() => {
         fetchJobs();
+        // Track authenticated visit for returning visitor analytics
+        fastAxiosInstance.post('/api/track-visit').catch(() => {});
     }, []);
 
     const fetchJobs = () => {

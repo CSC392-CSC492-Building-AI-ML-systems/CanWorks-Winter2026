@@ -301,6 +301,59 @@ class EmployerAnalyticsResponse(BaseModel):
     total_published_jobs: int
 
 
+# Admin analytics schemas
+class JobsByTypeItem(BaseModel):
+    job_type: str
+    count: int
+
+class JobsByProvinceItem(BaseModel):
+    province: str
+    count: int
+
+class ClicksByTypeItem(BaseModel):
+    job_type: str
+    clicks: int
+
+class UserCountItem(BaseModel):
+    user_type: str
+    count: int
+
+class FeedLogItem(BaseModel):
+    id: int
+    source: str
+    status: str
+    jobs_added: int
+    jobs_skipped: int
+    errors: Optional[list] = None
+    uploaded_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ClickEventCreate(BaseModel):
+    job_id: Optional[int] = None
+    job_type: Optional[str] = None
+    url: str
+
+class AdminAnalyticsResponse(BaseModel):
+    total_admin_jobs: int
+    total_employer_jobs: int
+    total_applications: int
+    pipeline: PipelineStats
+    jobs_by_type: list[JobsByTypeItem]
+    jobs_by_province: list[JobsByProvinceItem]
+    total_saved_jobs: int
+    avg_saved_per_user: float
+    top_skills: list[TopSkillItem]
+    top_universities: list[TopUniversityItem]
+    employer_job_status: JobStatusCounts
+    clicks_by_type: list[ClicksByTypeItem]
+    returning_visitor_rate: Optional[float] = None
+    user_counts: list[UserCountItem]
+    recent_feed_logs: list[FeedLogItem]
+
+
 class CareerInsightCreate(BaseModel):
     title: str
     category: str

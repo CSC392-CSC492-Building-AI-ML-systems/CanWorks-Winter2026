@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import JobPosting, SavedJob, CareerInsight, JobDescription
+from models import JobPosting, SavedJob, CareerInsight, JobDescription, FeedLog
 from schemas import JobPostingResponse, JobPostingListResponse, UploadResponse, JobDescriptionListResponse, JobDescriptionResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
@@ -70,6 +70,18 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
         jobs_added += 1
     
     db.commit() # write all staged rows to the database at once
+
+    # Record feed log entry
+    feed_log = FeedLog(
+        source=file.filename or "excel_upload",
+        status="success" if not parse_errors else "partial",
+        jobs_added=jobs_added,
+        jobs_skipped=jobs_skipped,
+        errors=parse_errors if parse_errors else None,
+        uploaded_by=None,  # could be enhanced with auth later
+    )
+    db.add(feed_log)
+    db.commit()
 
     return UploadResponse(
         jobs_added=jobs_added,

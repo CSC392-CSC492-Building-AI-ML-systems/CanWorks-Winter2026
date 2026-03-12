@@ -158,6 +158,35 @@ class Application(Base):
     job_description = relationship("JobDescription")
 
 
+class ClickEvent(Base):
+    __tablename__ = "click_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=True, index=True)
+    job_id = Column(Integer, nullable=True)
+    job_type = Column(String, nullable=True)
+    url = Column(String, nullable=False)
+    clicked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class UserVisit(Base):
+    __tablename__ = "user_visits"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=False, index=True)
+    visited_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class FeedLog(Base):
+    __tablename__ = "feed_logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    jobs_added = Column(Integer, default=0)
+    jobs_skipped = Column(Integer, default=0)
+    errors = Column(JSON, nullable=True)
+    uploaded_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class CareerInsight(Base):
     __tablename__ = "career_insights"
     id = Column(Integer, primary_key=True, autoincrement=True)

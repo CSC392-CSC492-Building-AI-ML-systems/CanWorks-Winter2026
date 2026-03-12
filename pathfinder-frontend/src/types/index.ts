@@ -255,6 +255,61 @@ export interface EmployerAnalytics {
     total_published_jobs: number;
 }
 
+// Admin analytics types
+export interface JobsByTypeItem {
+    job_type: string;
+    count: number;
+}
+
+export interface JobsByProvinceItem {
+    province: string;
+    count: number;
+}
+
+export interface ClicksByTypeItem {
+    job_type: string;
+    clicks: number;
+}
+
+export interface UserCountItem {
+    user_type: string;
+    count: number;
+}
+
+export interface FeedLogItem {
+    id: number;
+    source: string;
+    status: string;
+    jobs_added: number;
+    jobs_skipped: number;
+    errors: string[] | null;
+    uploaded_by: string | null;
+    created_at: string | null;
+}
+
+export interface AdminAnalytics {
+    total_admin_jobs: number;
+    total_employer_jobs: number;
+    total_applications: number;
+    pipeline: PipelineStats;
+    jobs_by_type: JobsByTypeItem[];
+    jobs_by_province: JobsByProvinceItem[];
+    total_saved_jobs: number;
+    avg_saved_per_user: number;
+    top_skills: TopSkillItem[];
+    top_universities: TopUniversityItem[];
+    employer_job_status: {
+        draft: number;
+        published: number;
+        expired: number;
+        deleted: number;
+    };
+    clicks_by_type: ClicksByTypeItem[];
+    returning_visitor_rate: number | null;
+    user_counts: UserCountItem[];
+    recent_feed_logs: FeedLogItem[];
+}
+
 export interface JobDescriptionFormData {
     job_title: string;
     industry: string;
