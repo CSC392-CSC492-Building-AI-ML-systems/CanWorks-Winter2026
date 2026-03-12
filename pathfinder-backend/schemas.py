@@ -41,6 +41,7 @@ class JobPostingResponse(BaseModel):
     employer_notes: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    skills: Optional[list[str]] = []
 
     """
     When query the database, SQLAlchemy returns a JobPosting object
@@ -143,6 +144,23 @@ class SkillResponse(BaseModel):
 
 class SkillSearchResponse(BaseModel):
     skills: list[SkillResponse]
+
+# User Skill schemas
+class UserSkillCreate(BaseModel):
+    skill_id: UUID
+
+class UserSkillResponse(BaseModel):
+    id: UUID
+    user_id: str
+    skill_id: UUID
+    skill_name: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class UserSkillListResponse(BaseModel):
+    user_skills: list[UserSkillResponse]
 
 # JobDescription schemas
 class JobDescriptionSkillInput(BaseModel):
