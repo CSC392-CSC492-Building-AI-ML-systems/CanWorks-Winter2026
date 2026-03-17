@@ -20,10 +20,11 @@ export default function StudentDashboardPage() {
     const [jobs, setJobs] = useState<JobPosting[]>([]);
     const [total, setTotal] = useState<number>(0);
     const [recommended, setRecommended] = useState<JobPosting[]>([]);
+    const [recCount, setRecCount] = useState<number>(4); // how many recommendations to fetch ("warmth")
 
     useEffect(() => {
         fetchJobs();
-        fetchRecommendations();
+        fetchRecommendations(recCount);
         // Track authenticated visit for returning visitor analytics
         fastAxiosInstance.post('/api/track-visit').catch(() => {});
     }, []);
@@ -44,9 +45,9 @@ export default function StudentDashboardPage() {
         );
     };
 
-    const fetchRecommendations = async () => {
+    const fetchRecommendations = async (k: number = recCount) => {
         try {
-            const res = await fastAxiosInstance.get('/api/recommendations?k=4');
+            const res = await fastAxiosInstance.get(`/api/recommendations?k=${k}`);
             const recs: JobPosting[] = res.data.jobs || [];
             recs.forEach((job: JobPosting) => {
                 job.applySite = job.link_to_posting ? new URL(job.link_to_posting).hostname.replace('www.', '').replace('.com', '') : 'Unknown';
@@ -57,6 +58,11 @@ export default function StudentDashboardPage() {
         }
     };
 
+    // When user changes the desired number of recommendations, refetch
+    useEffect(() => {
+        fetchRecommendations(recCount);
+    }, [recCount]);
+
     return (
         <div className="min-h-screen bg-gray-50 py-8">
             <UserProvider userType={"student"}>
@@ -66,6 +72,22 @@ export default function StudentDashboardPage() {
                             title={"Dashboard"}
                         >
                         </Header>
+
+                        {/* Recommendation warmth selector */}
+                        <div className="mt-4 mb-6 flex items-center gap-4">
+                            <label className="text-sm text-gray-600">Recommendations:</label>
+                            <select
+                                value={recCount}
+                                onChange={(e) => setRecCount(Number(e.target.value))}
+                                className="border rounded px-2 py-1 bg-white"
+                                aria-label="Number of recommendations"
+                            >
+                                {Array.from({ length: Math.min(total || 50, 50) }, (_, i) => i + 1).map((n) => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </select>
+                            <p className="text-sm text-gray-500">Showing top {recCount} similar jobs</p>
+                        </div>
 
                         <Tabs defaultValue="home" className="space-y-6">
                         {/* Updated TabsList to be cleaner without grid constraints */}
