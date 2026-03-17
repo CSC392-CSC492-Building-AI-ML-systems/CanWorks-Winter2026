@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Slider from 'react-slick';
 import { Card } from '@/app/components/globalComponents';
 import { JobCard } from '@/app/components/JobCard';
-import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight, Sliders } from 'lucide-react';
 import { mockJobs } from '@/data/mockData';
 import type { JobPosting } from '@/types';
 import { useSavedJobs } from '@/app/hooks/useSavedJobs';
@@ -31,8 +31,10 @@ function PrevArrow(props: any) {
   );
 }
 
-export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined }: { totalJobs: number, recommendedJobs?: JobPosting[] }) {
+export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined, recCount = 4, setRecCount = (n: number) => {} }: { totalJobs: number, recommendedJobs?: JobPosting[], recCount?: number, setRecCount?: (n: number) => void }) {
     const { savedJobDetails, toggleSave, loading } = useSavedJobs();
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [tempRecCount, setTempRecCount] = React.useState<number>(recCount);
 
     if (loading) {
     return (
@@ -126,20 +128,68 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
       
         {/* Recommended For You Carousel */}
         <section>
+          <div className="flex items-center justify-between">
             <h2 className="text-2xl mb-6">Recommended For You</h2>
-            <div className="relative px-12">
-            <Slider {...carouselSettings}>
-                {recommendedJobs.map((job) => (
-                <div key={job.id} className="px-2">
-                    <JobCard
-                    job={job}
-                    isSaved={savedJobDetails?.some(j => j.id === job.id) || false}
-                    onToggleSave={toggleSave}
+            <div className="relative">
+              <button
+                className="inline-flex items-center gap-2 px-3 py-1.5 border rounded bg-white"
+                onClick={() => { setFiltersOpen((s) => !s); setTempRecCount(recCount); }}
+                aria-expanded={filtersOpen}
+              >
+                <Sliders className="w-4 h-4" />
+                <span className="text-sm">Filters</span>
+              </button>
+
+              {filtersOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border rounded shadow-lg p-4 z-30">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium">Recommendation Filters</h3>
+                    <button className="text-sm text-gray-500" onClick={() => { setFiltersOpen(false); setTempRecCount(recCount); }}>Close</button>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="text-xs text-gray-600">Number of recommendations: <span className="font-medium">{tempRecCount}</span></label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={Math.max(1, Math.min(totalJobs || 50, 50))}
+                      value={tempRecCount}
+                      onChange={(e) => setTempRecCount(Number((e.target as HTMLInputElement).value))}
+                      className="w-full mt-2"
                     />
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      className="px-3 py-1 rounded border bg-white text-sm"
+                      onClick={() => { setFiltersOpen(false); setTempRecCount(recCount); }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-3 py-1 rounded bg-blue-600 text-white text-sm"
+                      onClick={() => { setRecCount(tempRecCount); setFiltersOpen(false); }}
+                    >
+                      Apply
+                    </button>
+                  </div>
                 </div>
-                ))}
-            </Slider>
+              )}
             </div>
+          </div>
+          <div className="relative px-12">
+          <Slider {...carouselSettings}>
+            {recommendedJobs.map((job) => (
+            <div key={job.id} className="px-2">
+              <JobCard
+              job={job}
+              isSaved={savedJobDetails?.some(j => j.id === job.id) || false}
+              onToggleSave={toggleSave}
+              />
+            </div>
+            ))}
+          </Slider>
+          </div>
         </section>
 
         {/* Wildcard Carousel */}

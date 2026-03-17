@@ -73,21 +73,7 @@ export default function StudentDashboardPage() {
                         >
                         </Header>
 
-                        {/* Recommendation warmth selector */}
-                        <div className="mt-4 mb-6 flex items-center gap-4">
-                            <label className="text-sm text-gray-600">Recommendations:</label>
-                            <select
-                                value={recCount}
-                                onChange={(e) => setRecCount(Number(e.target.value))}
-                                className="border rounded px-2 py-1 bg-white"
-                                aria-label="Number of recommendations"
-                            >
-                                {Array.from({ length: Math.min(total || 50, 50) }, (_, i) => i + 1).map((n) => (
-                                    <option key={n} value={n}>{n}</option>
-                                ))}
-                            </select>
-                            <p className="text-sm text-gray-500">Showing top {recCount} similar jobs</p>
-                        </div>
+                        
 
                         <Tabs defaultValue="home" className="space-y-6">
                         {/* Updated TabsList to be cleaner without grid constraints */}
@@ -115,7 +101,7 @@ export default function StudentDashboardPage() {
                         </TabsList>
 
                         <TabsContent value="home" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                            <HomePage totalJobs={total} recommendedJobs={recommended}>
+                            <HomePage totalJobs={total} recommendedJobs={recommended} recCount={recCount} setRecCount={setRecCount}>
                             </HomePage>
 
                         </TabsContent>
