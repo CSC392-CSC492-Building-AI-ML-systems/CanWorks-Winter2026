@@ -16,7 +16,7 @@ from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResp
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from schemas import JobEventCreate
 
 from routes.job_descriptions import router as job_descriptions_router
@@ -32,7 +32,7 @@ from jwt_auth import verify_jwt
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load embedding model (SentenceTransformers) once at startup
+# Load embedding model (FastEmbed) once at startup
 _embed_model = None
 
 async def load_embedding_model():
@@ -46,14 +46,16 @@ async def load_embedding_model():
     
     try:
         logger.info("Loading embedding model...")
-        _embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+        _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
         logger.info("Embedding model loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load embedding model: {e}. Continuing without embeddings.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await load_embedding_model()
+    import asyncio
+    # Start the download in the background so it doesn't block Uvicorn from binding the port!
+    asyncio.create_task(load_embedding_model())
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -87,13 +89,14 @@ def embed_text(text: str):
     if _embed_model is None:
         try:
             logger.info("Loading embedding model lazily...")
-            _embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+            _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
         except Exception as e:
             logger.error(f"Failed to load embedding model: {e}")
             return None
 
     try:
-        vec = _embed_model.encode(text)
+        vec_generator = _embed_model.embed([text])
+        vec = next(vec_generator)
         return vec.tolist()
     except Exception as e:
         logger.error(f"Failed to embed text: {e}")
