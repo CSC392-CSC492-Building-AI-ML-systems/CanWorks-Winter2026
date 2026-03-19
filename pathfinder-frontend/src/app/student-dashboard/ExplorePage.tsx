@@ -231,7 +231,7 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
     };
 
     const [filters, setFilters] = useState({
-        types: [] as ('intern' | 'coop' | 'new-grad' | 'part time' | 'full time')[],
+        types: [] as ('intern' | 'coop' | 'new-grad' | 'part time' | 'full-time')[],
         keywords: '',
         location: '',
         mode: [] as ('Remote' | 'On Site' | 'Hybrid')[],
@@ -246,7 +246,7 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
         localStorage.setItem('savedSearches', JSON.stringify(savedSearches));
     }, [savedSearches]);
 
-    const toggleType = (type: 'intern' | 'coop' | 'new-grad' | 'part time' | 'full time') => {
+    const toggleType = (type: 'intern' | 'coop' | 'new-grad' | 'part time' | 'full-time') => {
         setFilters(prev => ({
             ...prev,
             types: prev.types.includes(type)
@@ -372,10 +372,10 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                                         <div className="flex items-center space-x-2">
                                             <CheckBox
                                                 id="filter-fulltime"
-                                                checked={filters.types.includes('full time')}
-                                                onChange={() => toggleType('full time')}
+                                                checked={filters.types.includes('full-time')}
+                                                onChange={() => toggleType('full-time')}
                                             />
-                                            <Label htmlFor="filter-fulltime" className="cursor-pointer">Full Time</Label>
+                                            <Label htmlFor="filter-fulltime" className="cursor-pointer">Full-Time</Label>
                                         </div>
                                     </div>
                                 </div>

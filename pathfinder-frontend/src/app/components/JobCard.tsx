@@ -54,8 +54,8 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
                      job.employment_type.charAt(0).toUpperCase() + job.employment_type.slice(1)}
                     </Badge>
                 )}
-                {job.skills?.slice(0, 3).map(s => (
-                <Badge key={s.skill_name} variant="outline">{s.skill_name}</Badge>
+                {job.skills?.slice(0, 3).map((s, index) => (
+                <Badge key={`${job.id}-skill-${s.skill_name}-${index}`} variant="outline">{s.skill_name}</Badge>
                 ))}
                 {job.skills && job.skills.length > 3 && (
                 <Badge variant="outline">+{job.skills.length - 3} more</Badge>
