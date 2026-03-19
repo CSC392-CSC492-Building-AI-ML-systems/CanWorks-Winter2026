@@ -7,78 +7,92 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
-class JobPosting(Base): # jobs uploaded by admins via Excel files
-    # Create a table called job_postings
-    __tablename__ = "job_postings"
-    id = Column(Integer, primary_key = True, autoincrement=True)
+class Job(Base):
+    __tablename__ = "jobs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    uploaded_by = Column(String, nullable=False)  # "admin" or "employer"
+    employer_id = Column(String, nullable=True, index=True)  # Supabase auth user id; NULL for admin uploads
+
+    # Core fields
     title = Column(String, nullable=False)
-    employer = Column(String, nullable=False)
-    posting_date = Column(Date, nullable=True)
-    application_deadline = Column(Date, nullable=True)
-    link_to_posting = Column(String, nullable=True)
-    mode = Column(String, nullable=True)
-    job_type = Column(String, nullable=True)
-    term = Column(String, nullable=True)
-    with_pay = Column(Boolean, default=True)
-    start_month = Column(String, nullable=True)
-    end_month = Column(String, nullable=True)
-    duration_months = Column(Float, nullable=True)
+    employer = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    responsibilities = Column(Text, nullable=True)
     province = Column(String, nullable=True)
     city = Column(String, nullable=True)
-    target_audience = Column(String, nullable=True)
-    description = Column(Text, nullable=True) # Text is different from String: Text stores longer content
-    responsibilities = Column(Text, nullable=True)
-    requirements = Column(Text, nullable=True)
-    majors_required = Column(JSON, nullable=True)
-    other_academic_requirements = Column(Text, nullable=True)
-    assets = Column(Text, nullable=True)
-    employer_notes = Column(Text, nullable=True)
+    mode = Column(String, nullable=True)  # Remote / On Site / Hybrid
     compensation_min = Column(Numeric, nullable=True)
     compensation_max = Column(Numeric, nullable=True)
-    job_description_id = Column(UUID(as_uuid=True), nullable=True)
+    compensation_currency = Column(String, default="CAD")
+    application_deadline = Column(Date, nullable=True)
+    employment_type = Column(String, nullable=True)  # intern, coop, new-grad, part-time, full-time
+    qualifications = Column(Text, nullable=True)
+    with_pay = Column(Boolean, default=True)
+    start_month = Column(String, nullable=True)
+    duration_months = Column(Float, nullable=True)
+    target_audience = Column(String, nullable=True)
+    other_academic_requirements = Column(Text, nullable=True)
+    link_to_posting = Column(String, nullable=True)
 
-    # metadata
-    dedupe_hash = Column(String, unique=True, index=True) # index=True to create a db index so lookups by hash are fast
-    is_active = Column(Boolean, default=True)
-    # wrap datetime.now in a lambda so datetime.now runs fresh for each insert
-    # without lambda, the function datetime.now is only invoked once when the table is created, making all entries have the same created_at time
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda:datetime.now(timezone.utc))
-    # dense vector embedding for semantic search (SentenceTransformers -- 384 dims)
+    # Employer-specific
+    template_id = Column(UUID(as_uuid=True), ForeignKey("templates.id"), nullable=True)
+    industry = Column(String, nullable=True)
+    job_function = Column(String, nullable=True)
+    seniority_level = Column(String, nullable=True)
+
+    # Status and lifecycle
+    status = Column(String, default="draft")  # draft, published, inactive
+    published_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
+
+    # Metadata
+    dedupe_hash = Column(String, unique=True, nullable=True, index=True)
     embedding = Column(Vector(384), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    skills = relationship("JobSkill", back_populates="job", cascade="all, delete-orphan")
+
+
+class JobSkill(Base):
+    __tablename__ = "job_skills"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=False)
+    skill_id = Column(UUID(as_uuid=True), ForeignKey("skills.id"), nullable=False)
+    skill_type = Column(String, nullable=False)  # required, preferred
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    job = relationship("Job", back_populates="skills")
+    skill = relationship("Skill", lazy="joined")
+
+    @property
+    def skill_name(self):
+        return self.skill.skill_name if self.skill else None
 
 
 class SavedJob(Base):
     __tablename__ = "saved_jobs"
     id = Column(Integer, primary_key=True, autoincrement=True)
-
-    # Supabase auth user id (JWT "sub")
     user_id = Column(String, nullable=False, index=True)
-
-    # Foreign key to your existing job_postings table
-    job_id = Column(Integer, ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False)
-
+    job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    # Prevent duplicate saves
     __table_args__ = (
         UniqueConstraint("user_id", "job_id", name="unique_user_job"),
     )
 
-    # Lets you access saved_job.job
-    job = relationship("JobPosting")
+    job = relationship("Job")
 
 
 class JobEvent(Base):
     __tablename__ = "job_events"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, nullable=False, index=True)
-    job_id = Column(Integer, ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False)
-    event_type = Column(String, nullable=False)  # e.g., 'view', 'save', 'apply'
+    job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    job = relationship("JobPosting")
-
+    job = relationship("Job")
 
 
 class Template(Base):
@@ -97,8 +111,8 @@ class Template(Base):
     compensation_min = Column(Numeric, nullable=True)
     compensation_max = Column(Numeric, nullable=True)
     status = Column(String, default="active")
-    created_at = Column(DateTime, default=lambda:datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda:datetime.now(timezone.utc), onupdate=lambda:datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class Skill(Base):
@@ -109,51 +123,13 @@ class Skill(Base):
     status = Column(String, default="active")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-class JobDescription(Base): # jobs that employers create themselves
-    __tablename__ = "job_descriptions"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(String, nullable=False, index=True)
-    template_id = Column(UUID(as_uuid=True), ForeignKey("templates.id"), nullable=True)
-    job_title = Column(String, nullable=False)
-    industry = Column(String, nullable=True)
-    job_function = Column(String, nullable=True)
-    seniority_level = Column(String, nullable=True)
-    employment_type = Column(String, nullable=True)
-    location_type = Column(String, nullable=True)
-    location_city = Column(String, nullable=True)
-    location_province = Column(String, nullable=True)
-    job_description = Column(Text, nullable=True)
-    responsibilities = Column(JSON, nullable=True)
-    qualifications = Column(Text, nullable=True)
-    compensation_min = Column(Numeric, nullable=True)
-    compensation_max = Column(Numeric, nullable=True)
-    compensation_currency = Column(String, default="CAD")
-    application_deadline = Column(Date, nullable=True)
-    status = Column(String, default="draft")
-    created_at = Column(DateTime, default=lambda:datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda:datetime.now(timezone.utc), onupdate=lambda:datetime.now(timezone.utc))
-    published_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)
-    skills = relationship("JobDescriptionSkill", back_populates="job_description", cascade="all, delete-orphan")
-
-
-class JobDescriptionSkill(Base): # Relationship table connecting Skill and JobDescription
-    __tablename__ = "job_description_skills"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    job_description_id = Column(UUID(as_uuid=True), ForeignKey("job_descriptions.id"), nullable=False)
-    skill_id = Column(UUID(as_uuid=True), ForeignKey("skills.id"), nullable=False)
-    skill_type = Column(String, nullable=False)
-    created_at = Column(DateTime, default=lambda:datetime.now(timezone.utc))
-    job_description = relationship("JobDescription", back_populates="skills")
-    skill = relationship("Skill")
-
 
 class Application(Base):
     __tablename__ = "applications"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_user_id = Column(String, nullable=False, index=True)
-    job_description_id = Column(UUID(as_uuid=True), ForeignKey("job_descriptions.id", ondelete="CASCADE"), nullable=False)
-    status = Column(String, default="pending")  # pending, reviewing, interview, offer, rejected, hired
+    job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String, default="pending")
     student_name = Column(String, nullable=True)
     student_email = Column(String, nullable=True)
     university = Column(String, nullable=True)
@@ -166,17 +142,17 @@ class Application(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        UniqueConstraint("student_user_id", "job_description_id", name="unique_student_application"),
+        UniqueConstraint("student_user_id", "job_id", name="unique_student_application"),
     )
 
-    job_description = relationship("JobDescription")
+    job = relationship("Job")
 
 
 class ClickEvent(Base):
     __tablename__ = "click_events"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, nullable=True, index=True)
-    job_id = Column(Integer, nullable=True)
+    job_id = Column(UUID(as_uuid=True), nullable=True)
     job_type = Column(String, nullable=True)
     url = Column(String, nullable=False)
     clicked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -214,4 +190,3 @@ class CareerInsight(Base):
     status = Column(String, default="published")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-

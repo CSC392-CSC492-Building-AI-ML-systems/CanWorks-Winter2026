@@ -1,5 +1,6 @@
 import os
 import logging
+from uuid import UUID
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi import UploadFile, File # handle file uploads
@@ -9,8 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import JobPosting, SavedJob, CareerInsight, JobDescription, FeedLog, JobEvent
-from schemas import JobPostingResponse, JobPostingListResponse, UploadResponse, JobDescriptionListResponse, JobDescriptionResponse
+from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent
+from schemas import JobResponse, JobListResponse, UploadResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
 from excel_parser import parse_excel_file
@@ -39,11 +40,11 @@ async def load_embedding_model():
     global _embed_model
     # Skip embedding model in production to speed up startup if needed
     load_embeddings = os.getenv("LOAD_EMBEDDINGS", "true").lower() == "true"
-    
+
     if not load_embeddings:
         logger.info("Embeddings disabled via LOAD_EMBEDDINGS env var")
         return
-    
+
     try:
         logger.info("Loading embedding model...")
         _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -60,7 +61,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 """
-Browsers block requests between different origins by default. 
+Browsers block requests between different origins by default.
 Frontend and backend can run on different ports so to the brwoser, these are different origins.
 Middleware allows the communication between the frontend and the backend
 """
@@ -72,7 +73,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers including Authorization
 )
 
-# Tell SQLAlchemy to look at all classes that inherit from Base (JobPosting model in this case)
+# Tell SQLAlchemy to look at all classes that inherit from Base (Job model in this case)
 # and create the table in the database if it doesn't already exist
 try:
     logger.info("Initializing database...")
@@ -85,7 +86,7 @@ def embed_text(text: str):
     global _embed_model
     if not text:
         return None
-        
+
     if _embed_model is None:
         try:
             logger.info("Loading embedding model lazily...")
@@ -124,12 +125,16 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
     jobs_skipped = 0
 
     for job_data in jobs:
-        existing = db.query(JobPosting).filter(JobPosting.dedupe_hash == job_data["dedupe_hash"]).first()
+        existing = db.query(Job).filter(Job.dedupe_hash == job_data["dedupe_hash"]).first()
         if existing:
             jobs_skipped += 1
             continue
 
-        db_job = JobPosting(**job_data) # The ** breaks the dictionary representation of each job into keyword arguments. Equivalent to JobPosting(title="...", employer="...", ...)
+        # Extract skills_raw and uploaded_by before passing to Job constructor
+        skills_raw = job_data.pop("skills_raw", [])
+        uploaded_by = job_data.pop("uploaded_by", "admin")
+
+        db_job = Job(uploaded_by=uploaded_by, status="published", **job_data)
         # compute embedding for job content (title + employer + description)
         try:
             text_blob = ' '.join(filter(None, [str(job_data.get('title', '')), str(job_data.get('employer', '')), str(job_data.get('description', ''))]))
@@ -139,8 +144,26 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
         except Exception:
             pass
         db.add(db_job) # stage the new row
+        db.flush()  # flush to get the job id assigned
+
+        # Process skills
+        for skill_name in skills_raw:
+            skill_name_lower = skill_name.strip().lower()
+            if not skill_name_lower:
+                continue
+            # Case-insensitive lookup in Skill table
+            skill = db.query(Skill).filter(
+                Skill.skill_name.ilike(skill_name_lower)
+            ).first()
+            if not skill:
+                skill = Skill(skill_name=skill_name.strip())
+                db.add(skill)
+                db.flush()
+            job_skill = JobSkill(job_id=db_job.id, skill_id=skill.id, skill_type="required")
+            db.add(job_skill)
+
         jobs_added += 1
-    
+
     db.commit() # write all staged rows to the database at once
 
     # Record feed log entry
@@ -161,42 +184,45 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
         errors=parse_errors
     )
 
-@app.get("/api/jobs", response_model=JobPostingListResponse)
+@app.get("/api/jobs", response_model=JobListResponse)
 def get_jobs(
     page: int=Query(default=1, ge=1), # ge means greater than or equal to ensure page is at least 1
     page_size: int=Query(default=20, ge=1, le=100), # le means less than or equal to ensure a page doesn't display more than 100 jobs
     search: str=Query(default=None),
-    job_type: str=Query(default=None),
+    employment_type: str=Query(default=None),
     mode: str=Query(default=None),
     province: str=Query(default=None),
     target_audience: str=Query(default=None),
+    uploaded_by: str=Query(default=None),
     db: Session=Depends(get_db) # This tells FastAPI that before running get_jobs, call get_db and get a database session back then pass it as the db parameter
 ):
-    query = db.query(JobPosting).filter(JobPosting.is_active == True)
+    query = db.query(Job).options(joinedload(Job.skills).joinedload(JobSkill.skill)).filter(Job.status == "published", Job.deleted_at.is_(None))
     if search:
         query = query.filter(
             or_(
-                JobPosting.title.ilike(f"%{search}%"), # search for substring match
-                JobPosting.employer.ilike(f"%{search}%"),
-                JobPosting.description.ilike(f"%{search}%")
+                Job.title.ilike(f"%{search}%"), # search for substring match
+                Job.employer.ilike(f"%{search}%"),
+                Job.description.ilike(f"%{search}%")
             )
         )
-    
-    if job_type:
-        query = query.filter(JobPosting.job_type == job_type)
+
+    if employment_type:
+        query = query.filter(Job.employment_type == employment_type)
     if mode:
-        query = query.filter(JobPosting.mode == mode)
+        query = query.filter(Job.mode == mode)
     if province:
-        query = query.filter(JobPosting.province == province)
+        query = query.filter(Job.province == province)
     if target_audience:
-        query = query.filter(JobPosting.target_audience == target_audience)
-    
+        query = query.filter(Job.target_audience == target_audience)
+    if uploaded_by:
+        query = query.filter(Job.uploaded_by == uploaded_by)
+
     total = query.count()
     # offset = (page - 1) * page_size
     # number of jobs displayed in 1 page = page_size
     jobs = query.offset((page - 1) * page_size).limit(page_size).all()
 
-    return JobPostingListResponse(
+    return JobListResponse(
         jobs=jobs,
         total=total,
         page=page,
@@ -206,15 +232,15 @@ def get_jobs(
 # stats endpoint counting active jobs
 @app.get("/api/jobs/stats")
 def get_job_stats(db: Session = Depends(get_db)):
-    total = db.query(JobPosting).filter(JobPosting.is_active == True).count()
+    total = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).count()
     return {
         "total_jobs": total
     }
 
 # Single job endpoint
-@app.get("/api/jobs/{job_id}", response_model=JobPostingResponse)
-def get_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
+@app.get("/api/jobs/{job_id}", response_model=JobResponse)
+def get_job(job_id: UUID, db: Session = Depends(get_db)):
+    job = db.query(Job).options(joinedload(Job.skills).joinedload(JobSkill.skill)).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
@@ -230,8 +256,8 @@ def save_job(
 ):
     user_id = user["sub"]  # extracted from JWT
 
-    job = db.query(JobPosting).filter(
-        JobPosting.id == payload.job_id
+    job = db.query(Job).filter(
+        Job.id == payload.job_id
     ).first()
 
     if not job:
@@ -262,7 +288,7 @@ def save_job(
 # -----------------------------
 @app.delete("/api/saved-jobs/{job_id}")
 def unsave_job(
-    job_id: int,
+    job_id: UUID,
     user=Depends(verify_jwt),
     db: Session = Depends(get_db)
 ):
@@ -339,7 +365,7 @@ def get_career_insights(db: Session = Depends(get_db)):
 
 
 # Public endpoint for students to browse published employer job descriptions
-@app.get("/api/published-jobs", response_model=JobDescriptionListResponse)
+@app.get("/api/published-jobs", response_model=JobListResponse)
 def get_published_jobs(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -348,32 +374,30 @@ def get_published_jobs(
 ):
     from datetime import date
 
-    query = db.query(JobDescription).filter(
-        JobDescription.status == "published",
-        JobDescription.deleted_at.is_(None),
+    query = db.query(Job).options(joinedload(Job.skills).joinedload(JobSkill.skill)).filter(
+        Job.uploaded_by == "employer",
+        Job.status == "published",
+        Job.deleted_at.is_(None),
     ).filter(
-        (JobDescription.application_deadline.is_(None)) |
-        (JobDescription.application_deadline >= date.today())
+        (Job.application_deadline.is_(None)) |
+        (Job.application_deadline >= date.today())
     )
 
     if search:
         query = query.filter(
             or_(
-                JobDescription.job_title.ilike(f"%{search}%"),
-                JobDescription.industry.ilike(f"%{search}%"),
-                JobDescription.job_description.ilike(f"%{search}%"),
+                Job.title.ilike(f"%{search}%"),
+                Job.industry.ilike(f"%{search}%"),
+                Job.description.ilike(f"%{search}%"),
             )
         )
 
-    query = query.order_by(JobDescription.published_at.desc())
+    query = query.order_by(Job.published_at.desc())
     total = query.count()
     jobs = query.offset((page - 1) * page_size).limit(page_size).all()
 
-    # Import the helper from the job_descriptions route to reuse the response builder
-    from routes.job_descriptions import _to_response
-
-    return JobDescriptionListResponse(
-        job_descriptions=[_to_response(j) for j in jobs],
+    return JobListResponse(
+        jobs=jobs,
         total=total,
         page=page,
         page_size=page_size,
@@ -388,7 +412,7 @@ def log_job_event(payload: JobEventCreate, user=Depends(verify_jwt), db: Session
     user_id = user["sub"]
 
     # ensure job exists
-    job = db.query(JobPosting).filter(JobPosting.id == payload.job_id).first()
+    job = db.query(Job).filter(Job.id == payload.job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -401,7 +425,7 @@ def log_job_event(payload: JobEventCreate, user=Depends(verify_jwt), db: Session
 # -----------------------------
 # GET - Recommendations (content-based)
 # -----------------------------
-@app.get("/api/recommendations", response_model=JobPostingListResponse)
+@app.get("/api/recommendations", response_model=JobListResponse)
 def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Depends(get_db)):
     user_id = user["sub"]
 
@@ -418,15 +442,15 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
             emb_list.append(np.array(e.job.embedding))
 
     if len(emb_list) == 0:
-        # fallback: return most recent active jobs
-        query = db.query(JobPosting).filter(JobPosting.is_active == True).order_by(JobPosting.created_at.desc()).limit(k).all()
-        total = db.query(JobPosting).filter(JobPosting.is_active == True).count()
-        return JobPostingListResponse(jobs=query, total=total, page=1, page_size=k)
+        # fallback: return most recent published jobs
+        query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).order_by(Job.created_at.desc()).limit(k).all()
+        total = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).count()
+        return JobListResponse(jobs=query, total=total, page=1, page_size=k)
 
     user_emb = np.mean(np.stack(emb_list, axis=0), axis=0)
 
     # fetch candidate jobs with embeddings
-    candidates = db.query(JobPosting).filter(JobPosting.is_active == True).all()
+    candidates = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).all()
     scored = []
     for job in candidates:
         if not getattr(job, 'embedding', None):
@@ -439,4 +463,4 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
     scored.sort(key=lambda x: x[0], reverse=True)
     top = [j for _, j in scored[:k]]
     total = len(scored)
-    return JobPostingListResponse(jobs=top, total=total, page=1, page_size=k)
+    return JobListResponse(jobs=top, total=total, page=1, page_size=k)

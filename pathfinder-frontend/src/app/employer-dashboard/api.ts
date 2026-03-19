@@ -36,7 +36,7 @@ export const skillApi = {
 };
 
 export const applicationApi = {
-    list: (params?: { job_description_id?: string; status?: string; page?: number; page_size?: number }) =>
+    list: (params?: { job_id?: string; status?: string; page?: number; page_size?: number }) =>
         fastAxiosInstance.get('/api/applications', { params }),
 
     updateStatus: (applicationId: string, status: string) =>

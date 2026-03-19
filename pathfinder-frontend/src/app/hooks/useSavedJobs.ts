@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useUser } from '@/app/components/authComponents';
-import type { JobPosting } from '@/types';
+import type { Job } from '@/types';
 import { supabase } from "@/app/lib/supabase";
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -10,7 +10,7 @@ const API_BASE = 'http://127.0.0.1:8000';
 export function useSavedJobs() {
   const { user } = useUser();
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
-  const [savedJobDetails, setSavedJobDetails] = useState<JobPosting[]>([]);
+  const [savedJobDetails, setSavedJobDetails] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
 
   // -------------------------
@@ -47,7 +47,7 @@ export function useSavedJobs() {
         const data = await res.json();
 
         if (!cancelled) {
-          const jobs: JobPosting[] = data.map((item: any) => item.job);
+          const jobs: Job[] = data.map((item: any) => item.job);
           const ids = new Set(jobs.map(job => job.id.toString()));
 
           setSavedJobs(ids);
@@ -125,7 +125,7 @@ export function useSavedJobs() {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              job_id: Number(jobId)
+              job_id: jobId
             }),
           }
         );

@@ -6,10 +6,10 @@ import { Card, CardContent, Button, Badge,
     AlertDialogFooter, AlertDialogAction, AlertDialogCancel
 } from '@/app/components/globalComponents';
 import { Pencil, Copy, Trash2, Send, XCircle } from 'lucide-react';
-import type { JobDescription } from '@/types';
+import type { Job } from '@/types';
 
 interface JobDescriptionCardProps {
-    job: JobDescription;
+    job: Job;
     onEdit?: (id: string) => void;
     onDuplicate?: (id: string) => void;
     onDelete?: (id: string) => void;
@@ -32,13 +32,13 @@ export function JobDescriptionCard({ job, onEdit, onDuplicate, onDelete, onPubli
                     {/* Left side: job info */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-lg font-semibold truncate">{job.job_title}</h3>
+                            <h3 className="text-lg font-semibold truncate">{job.title}</h3>
                             <Badge variant={statusVariant}>{statusLabel}</Badge>
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
                             {job.employment_type && <span>{job.employment_type}</span>}
-                            {job.location_type && <span>{job.location_type}</span>}
-                            {job.location_city && <span>{job.location_city}</span>}
+                            {job.mode && <span>{job.mode}</span>}
+                            {job.city && <span>{job.city}</span>}
                             <span>Updated {formattedDate}</span>
                         </div>
                         {job.skills.length > 0 && (
@@ -88,7 +88,7 @@ export function JobDescriptionCard({ job, onEdit, onDuplicate, onDelete, onPubli
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Delete Job Description</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Are you sure you want to delete &quot;{job.job_title}&quot;? This action can be viewed in your History tab.
+                                            Are you sure you want to delete &quot;{job.title}&quot;? This action can be viewed in your History tab.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>

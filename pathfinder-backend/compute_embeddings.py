@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import JobPosting
+from models import Job
 from fastembed import TextEmbedding
 
 model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -9,7 +9,7 @@ model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
 def compute():
     db: Session = SessionLocal()
     try:
-        jobs = db.query(JobPosting).all()
+        jobs = db.query(Job).all()
         count = 0
         for job in jobs:
             if not getattr(job, 'embedding', None):

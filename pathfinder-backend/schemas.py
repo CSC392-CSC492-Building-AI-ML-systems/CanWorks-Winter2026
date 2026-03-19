@@ -1,5 +1,5 @@
-from pydantic import BaseModel 
-from datetime import date, datetime 
+from pydantic import BaseModel
+from datetime import date, datetime
 from typing import Optional, List
 from uuid import UUID
 
@@ -10,62 +10,72 @@ Validation Functionality:
 - Ensure requests match expected data type of attributes
 
 Serialization Functionality:
-- Convert Python objects into JSON that fron end can understand
-- SQLAlchemy JobPosting object is an object with attributes while 
+- Convert Python objects into JSON that front end can understand
+- SQLAlchemy Job object is an object with attributes while
 the front end expects JSON, so Pydantic takes care of the conversion
 """
 
-class JobPostingResponse(BaseModel):
-    id: int
+# Skill schemas (for job-skill junction)
+class JobSkillInput(BaseModel):
+    skill_id: UUID
+    skill_type: str
+
+class JobSkillResponse(BaseModel):
+    skill_id: UUID
+    skill_name: str
+    skill_type: str
+
+    class Config:
+        from_attributes = True
+
+
+class JobResponse(BaseModel):
+    id: UUID
+    uploaded_by: str
+    employer_id: Optional[str] = None
     title: str
-    employer: str
-    posting_date: Optional[date] = None
-    application_deadline: Optional[date] = None
-    link_to_posting: Optional[str] = None
-    mode: Optional[str] = None
-    job_type: Optional[str] = None
-    term: Optional[str] = None
-    with_pay: Optional[bool] = True
-    start_month: Optional[str] = None
-    end_month: Optional[str] = None
-    duration_months: Optional[float] = None
-    province: Optional[str] = None
-    city: Optional[str] = None
-    target_audience: Optional[str] = None
+    employer: Optional[str] = None
     description: Optional[str] = None
     responsibilities: Optional[str] = None
-    requirements: Optional[str] = None
-    majors_required: Optional[list] = None
+    province: Optional[str] = None
+    city: Optional[str] = None
+    mode: Optional[str] = None
+    compensation_min: Optional[float] = None
+    compensation_max: Optional[float] = None
+    compensation_currency: Optional[str] = "CAD"
+    application_deadline: Optional[date] = None
+    employment_type: Optional[str] = None
+    qualifications: Optional[str] = None
+    with_pay: Optional[bool] = True
+    start_month: Optional[str] = None
+    duration_months: Optional[float] = None
+    target_audience: Optional[str] = None
     other_academic_requirements: Optional[str] = None
-    assets: Optional[str] = None
-    employer_notes: Optional[str] = None
+    link_to_posting: Optional[str] = None
+    template_id: Optional[UUID] = None
+    industry: Optional[str] = None
+    job_function: Optional[str] = None
+    seniority_level: Optional[str] = None
+    skills: List[JobSkillResponse] = []
+    status: str
+    published_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    """
-    When query the database, SQLAlchemy returns a JobPosting object
-    where fields are accessed as attributes.
-
-    However, Pydantic by default expects data as a dictionary, meaning
-    Pydantic doesn't know how to read attributes off an object
-
-    class Config tells Pydantic to do read attributes off the JobPosting object
-    """
     class Config:
         from_attributes = True
-    
 
 
 """
-class JobPostingListResponse exists to send job postings in batch
-from the database to the front end. 
+class JobListResponse exists to send jobs in batch
+from the database to the front end.
 
-This is because sending all existing job postings in the database
-at once is slow and unnecessary since user's screen can't show 
+This is because sending all existing jobs in the database
+at once is slow and unnecessary since user's screen can't show
 all 500 jobs at the same time anyways
 """
-class JobPostingListResponse(BaseModel):
-    jobs: list[JobPostingResponse]
+class JobListResponse(BaseModel):
+    jobs: list[JobResponse]
     total: int
     page: int
     page_size: int
@@ -78,18 +88,18 @@ class UploadResponse(BaseModel):
 
 # Saved Job schemas
 class SavedJobCreate(BaseModel):
-    job_id: int
+    job_id: UUID
 
 
 class JobEventCreate(BaseModel):
-    job_id: int
+    job_id: UUID
     event_type: str  # e.g. 'view', 'save', 'apply'
 
 
 class SavedJobResponse(BaseModel):
     id: int
     user_id: str
-    job_id: int
+    job_id: UUID
     created_at: Optional[datetime] = None
 
     class Config:
@@ -98,7 +108,7 @@ class SavedJobResponse(BaseModel):
 class SavedJobWithDetails(BaseModel):
     id: int
     created_at: Optional[datetime] = None
-    job: JobPostingResponse
+    job: JobResponse
 
     class Config:
         from_attributes = True
@@ -144,11 +154,7 @@ class SkillResponse(BaseModel):
 class SkillSearchResponse(BaseModel):
     skills: list[SkillResponse]
 
-# JobDescription schemas
-class JobDescriptionSkillInput(BaseModel):
-    skill_id: UUID
-    skill_type: str
-
+# JobDescription create/update schemas (kept for employer wizard compatibility)
 class JobDescriptionCreate(BaseModel):
     template_id: Optional[UUID] = None
     job_title: str
@@ -166,7 +172,7 @@ class JobDescriptionCreate(BaseModel):
     compensation_max: Optional[float] = None
     compensation_currency: Optional[str] = "CAD"
     application_deadline: Optional[date] = None
-    skills: Optional[List[JobDescriptionSkillInput]] = []
+    skills: Optional[List[JobSkillInput]] = []
 
 
 class JobDescriptionUpdate(BaseModel):
@@ -185,55 +191,12 @@ class JobDescriptionUpdate(BaseModel):
     compensation_max: Optional[float] = None
     compensation_currency: Optional[str] = "CAD"
     application_deadline: Optional[date] = None
-    skills: Optional[List[JobDescriptionSkillInput]] = None
-
-class JobDescriptionSkillResponse(BaseModel):
-    skill_id: UUID
-    skill_name: str
-    skill_type: str
-
-    class Config:
-        from_attributes = True
-
-class JobDescriptionResponse(BaseModel):
-    id: UUID
-    user_id: str
-    template_id: Optional[UUID] = None
-    job_title: str
-    industry: Optional[str] = None
-    job_function: Optional[str] = None
-    seniority_level: Optional[str] = None
-    employment_type: Optional[str] = None
-    location_type: Optional[str] = None
-    location_city: Optional[str] = None
-    location_province: Optional[str] = None
-    job_description: Optional[str] = None
-    responsibilities: Optional[list] = None
-    qualifications: Optional[str] = None
-    compensation_min: Optional[float] = None
-    compensation_max: Optional[float] = None
-    compensation_currency: Optional[str] = "CAD"
-    application_deadline: Optional[date] = None
-    status: str
-    skills: List[JobDescriptionSkillResponse] = []
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    published_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-    
-
-class JobDescriptionListResponse(BaseModel):
-    job_descriptions: list[JobDescriptionResponse]
-    total: int
-    page: int
-    page_size: int
+    skills: Optional[List[JobSkillInput]] = None
 
 
 # Application schemas
 class ApplicationCreate(BaseModel):
-    job_description_id: UUID
+    job_id: UUID
     student_name: Optional[str] = None
     student_email: Optional[str] = None
     university: Optional[str] = None
@@ -247,7 +210,7 @@ class ApplicationStatusUpdate(BaseModel):
 class ApplicationResponse(BaseModel):
     id: UUID
     student_user_id: str
-    job_description_id: UUID
+    job_id: UUID
     status: str
     student_name: Optional[str] = None
     student_email: Optional[str] = None
@@ -337,7 +300,7 @@ class FeedLogItem(BaseModel):
         from_attributes = True
 
 class ClickEventCreate(BaseModel):
-    job_id: Optional[int] = None
+    job_id: Optional[UUID] = None
     job_type: Optional[str] = None
     url: str
 
@@ -388,5 +351,3 @@ class CareerInsightsResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-

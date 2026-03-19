@@ -6,47 +6,48 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models import JobDescription, JobDescriptionSkill, Skill
+from models import Job, JobSkill, Skill
 from schemas import (
     JobDescriptionCreate,
     JobDescriptionUpdate,
-    JobDescriptionResponse,
-    JobDescriptionListResponse,
-    JobDescriptionSkillResponse
+    JobResponse,
+    JobListResponse,
+    JobSkillResponse
 )
 
 router = APIRouter(prefix="/api/job-descriptions", tags=["Job Descriptions"])
 
-def _build_skill_responses(job: JobDescription) -> list:
+def _build_skill_responses(job: Job) -> list:
     """
     Convert a job's skill relationships into response objects with skill names
     """
     result = []
     for js in job.skills:
-        result.append(JobDescriptionSkillResponse(
+        result.append(JobSkillResponse(
             skill_id = js.skill_id,
             skill_name = js.skill.skill_name if js.skill else "",
             skill_type = js.skill_type
         ))
     return result
 
-def _to_response(job: JobDescription) -> JobDescriptionResponse:
+def _to_response(job: Job) -> JobResponse:
     """
-    Convert a JobDescription model instance into a response schema
+    Convert a Job model instance into a response schema
     """
-    return JobDescriptionResponse(
+    return JobResponse(
         id=job.id,
-        user_id=job.user_id,
+        uploaded_by=job.uploaded_by,
+        employer_id=job.employer_id,
         template_id=job.template_id,
-        job_title=job.job_title,
+        title=job.title,
         industry=job.industry,
         job_function=job.job_function,
         seniority_level=job.seniority_level,
         employment_type=job.employment_type,
-        location_type=job.location_type,
-        location_city=job.location_city,
-        location_province=job.location_province,
-        job_description=job.job_description,
+        mode=job.mode,
+        city=job.city,
+        province=job.province,
+        description=job.description,
         responsibilities=job.responsibilities,
         qualifications=job.qualifications,
         compensation_min=float(job.compensation_min) if job.compensation_min else None,
@@ -60,40 +61,42 @@ def _to_response(job: JobDescription) -> JobDescriptionResponse:
         published_at=job.published_at
     )
 
-def _get_owned_job(job_id: UUID, user_id: str, db: Session) -> JobDescription:
+def _get_owned_job(job_id: UUID, user_id: str, db: Session) -> Job:
     """
-    Fetch a job description and verify the current user owns it
+    Fetch a job and verify the current user owns it
     """
-    job = db.query(JobDescription).filter(
-        JobDescription.id == job_id,
-        JobDescription.deleted_at.is_(None)
+    job = db.query(Job).filter(
+        Job.id == job_id,
+        Job.uploaded_by == "employer",
+        Job.deleted_at.is_(None)
     ).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job description not found")
-    if job.user_id != user_id:
+    if job.employer_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
     return job
 
 
 # Create a new draft
-@router.post("", response_model=JobDescriptionResponse)
+@router.post("", response_model=JobResponse)
 def create_job_description(
     data: JobDescriptionCreate,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    job = JobDescription(
-        user_id = user_id,
+    job = Job(
+        uploaded_by="employer",
+        employer_id=user_id,
         template_id=data.template_id,
-        job_title=data.job_title,
+        title=data.job_title,
         industry=data.industry,
         job_function=data.job_function,
         seniority_level=data.seniority_level,
         employment_type=data.employment_type,
-        location_type=data.location_type,
-        location_city=data.location_city,
-        location_province=data.location_province,
-        job_description=data.job_description,
+        mode=data.location_type,
+        city=data.location_city,
+        province=data.location_province,
+        description=data.job_description,
         responsibilities=data.responsibilities,
         qualifications=data.qualifications,
         compensation_min=data.compensation_min,
@@ -107,8 +110,8 @@ def create_job_description(
 
     if data.skills:
         for skill_input in data.skills:
-            db.add(JobDescriptionSkill(
-                job_description_id=job.id,
+            db.add(JobSkill(
+                job_id=job.id,
                 skill_id=skill_input.skill_id,
                 skill_type=skill_input.skill_type
             ))
@@ -117,7 +120,7 @@ def create_job_description(
     return _to_response(job)
 
 # List the employer's job descriptions
-@router.get("", response_model=JobDescriptionListResponse)
+@router.get("", response_model=JobListResponse)
 def list_job_descriptions(
     status: str = Query(default=None),
     include_deleted: bool = Query(default=False),
@@ -127,36 +130,36 @@ def list_job_descriptions(
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(JobDescription).filter(JobDescription.user_id == user_id)
+    query = db.query(Job).filter(Job.employer_id == user_id, Job.uploaded_by == "employer")
     if include_deleted:
         # History tab: show deleted jobs
-        query = query.filter(JobDescription.deleted_at.isnot(None))
+        query = query.filter(Job.deleted_at.isnot(None))
     elif include_expired:
         # History tab: show expired jobs
         today = date.today()
         query = query.filter(
-            JobDescription.deleted_at.is_(None),
-            JobDescription.application_deadline.isnot(None),
-            JobDescription.application_deadline < today
+            Job.deleted_at.is_(None),
+            Job.application_deadline.isnot(None),
+            Job.application_deadline < today
         )
     else:
         # Drafts/Active tabs: exclude deleted and expired
         today = date.today()
-        query = query.filter(JobDescription.deleted_at.is_(None))
+        query = query.filter(Job.deleted_at.is_(None))
         query = query.filter(
-            (JobDescription.application_deadline.is_(None)) |
-            (JobDescription.application_deadline >= today)
+            (Job.application_deadline.is_(None)) |
+            (Job.application_deadline >= today)
         )
-    
+
     if status:
-        query = query.filter(JobDescription.status == status)
-    
-    query = query.order_by(JobDescription.updated_at.desc())
+        query = query.filter(Job.status == status)
+
+    query = query.order_by(Job.updated_at.desc())
     total = query.count()
     jobs = query.offset((page - 1) * page_size).limit(page_size).all()
-    
-    return JobDescriptionListResponse(
-        job_descriptions=[_to_response(j) for j in jobs],
+
+    return JobListResponse(
+        jobs=[_to_response(j) for j in jobs],
         total=total,
         page=page,
         page_size=page_size
@@ -164,7 +167,7 @@ def list_job_descriptions(
 
 
 # fetch one job for editing in the wizard
-@router.get("/{job_id}", response_model=JobDescriptionResponse)
+@router.get("/{job_id}", response_model=JobResponse)
 def get_job_description(
     job_id: UUID,
     user_id: str = Depends(get_current_user),
@@ -174,7 +177,7 @@ def get_job_description(
     return _to_response(job)
 
 
-@router.put("/{job_id}", response_model=JobDescriptionResponse)
+@router.put("/{job_id}", response_model=JobResponse)
 def update_job_description(
     job_id: UUID,
     data: JobDescriptionUpdate,
@@ -187,19 +190,29 @@ def update_job_description(
     update_data = data.model_dump(exclude_unset=True)
     skills_data = update_data.pop("skills", None)
 
+    # Map incoming schema field names to Job model field names
+    field_mapping = {
+        "job_title": "title",
+        "job_description": "description",
+        "location_type": "mode",
+        "location_city": "city",
+        "location_province": "province",
+    }
+
     for key, value in update_data.items():
-        setattr(job, key, value)
-    
+        model_field = field_mapping.get(key, key)
+        setattr(job, model_field, value)
+
     job.updated_at = datetime.now(timezone.utc)
 
     # If skills were included, replace them entirely
     if skills_data is not None:
-        db.query(JobDescriptionSkill).filter(
-            JobDescriptionSkill.job_description_id == job.id
+        db.query(JobSkill).filter(
+            JobSkill.job_id == job.id
         ).delete()
         for skill_input in skills_data:
-            db.add(JobDescriptionSkill(
-                job_description_id=job.id,
+            db.add(JobSkill(
+                job_id=job.id,
                 skill_id=skill_input["skill_id"],
                 skill_type=skill_input["skill_type"]
             ))
@@ -208,7 +221,7 @@ def update_job_description(
     return _to_response(job)
 
 
-@router.post("/{job_id}/publish",response_model=JobDescriptionResponse)
+@router.post("/{job_id}/publish",response_model=JobResponse)
 def publish_job_description(
     job_id: UUID,
     user_id: str = Depends(get_current_user),
@@ -218,13 +231,13 @@ def publish_job_description(
 
     # Validate all required fields before publishing
     errors = []
-    if not job.job_title or len(job.job_title) < 3:
+    if not job.title or len(job.title) < 3:
         errors.append("Job title is required (min 3 characters)")
-    if not job.job_description:
+    if not job.description:
         errors.append("Job description is required")
     if not job.responsibilities:
         errors.append("At least 1 responsibility is required")
-    
+
     required_skills = [s for s in job.skills if s.skill_type == "required"]
     if len(required_skills) < 1:
         errors.append("At least 1 required skill is needed")
@@ -232,10 +245,10 @@ def publish_job_description(
         errors.append("Compensation range minimum is required")
     if job.compensation_max is None:
         errors.append("Compensation range maximum is required")
-    
+
     if errors:
         raise HTTPException(status_code=422, detail={"validation_errors": errors})
-    
+
     job.status = "published"
     job.published_at = datetime.now(timezone.utc)
     job.updated_at = datetime.now(timezone.utc)
@@ -244,7 +257,7 @@ def publish_job_description(
     return _to_response(job)
 
 
-@router.post("/{job_id}/unpublish", response_model=JobDescriptionResponse)
+@router.post("/{job_id}/unpublish", response_model=JobResponse)
 def unpublish_job_description(
     job_id: UUID,
     user_id: str = Depends(get_current_user),
@@ -258,25 +271,26 @@ def unpublish_job_description(
     return _to_response(job)
 
 # Create a copy of another job description
-@router.post("/{job_id}/duplicate", response_model=JobDescriptionResponse)
+@router.post("/{job_id}/duplicate", response_model=JobResponse)
 def duplicate_job_description(
     job_id: UUID,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     original = _get_owned_job(job_id, user_id, db)
-    new_job = JobDescription(
-        user_id=user_id,
+    new_job = Job(
+        uploaded_by="employer",
+        employer_id=user_id,
         template_id=original.template_id,
-        job_title=original.job_title,
+        title=original.title,
         industry=original.industry,
         job_function=original.job_function,
         seniority_level=original.seniority_level,
         employment_type=original.employment_type,
-        location_type=original.location_type,
-        location_city=original.location_city,
-        location_province=original.location_province,
-        job_description=original.job_description,
+        mode=original.mode,
+        city=original.city,
+        province=original.province,
+        description=original.description,
         responsibilities=original.responsibilities,
         qualifications=original.qualifications,
         compensation_min=original.compensation_min,
@@ -289,8 +303,8 @@ def duplicate_job_description(
     db.flush()
 
     for skill in original.skills:
-        db.add(JobDescriptionSkill(
-            job_description_id=new_job.id,
+        db.add(JobSkill(
+            job_id=new_job.id,
             skill_id=skill.skill_id,
             skill_type=skill.skill_type
         ))
@@ -309,7 +323,3 @@ def delete_job_description(
     job.updated_at = datetime.now(timezone.utc)
     db.commit()
     return {"message": "Job description deleted"}
-        
-
-
-
