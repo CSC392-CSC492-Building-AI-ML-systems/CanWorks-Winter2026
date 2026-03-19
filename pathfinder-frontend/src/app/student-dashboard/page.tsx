@@ -12,7 +12,6 @@ import { CareerInsightsPage } from './CareerInsightsPage';
 import { ProfilePage } from './ProfilePage';
 import { MyApplicationsPage } from './MyApplicationsPage';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
-import AdminReports from '@/app/admin-dashboard/reports';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
 import type { JobPosting } from '@/types';
 
