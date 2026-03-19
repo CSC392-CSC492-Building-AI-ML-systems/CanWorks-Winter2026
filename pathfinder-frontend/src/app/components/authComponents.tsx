@@ -215,7 +215,7 @@ export function CheckUser<T extends UserType | undefined = undefined>({children,
                             targetPath = '/admin-dashboard';
                             break;
                         case 'super-admin':
-                            targetPath = '/admin-dashboard';
+                            targetPath = '/super-admin-dashboard';
                         case 'student':
                             targetPath = '/student-dashboard';
                             break;
