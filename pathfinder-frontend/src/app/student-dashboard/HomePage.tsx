@@ -4,7 +4,7 @@ import { Card } from '@/app/components/globalComponents';
 import { JobCard } from '@/app/components/JobCard';
 import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mockJobs } from '@/data/mockData';
-import type { JobPosting } from '@/types';
+import type { Job } from '@/types';
 import { useSavedJobs } from '@/app/hooks/useSavedJobs';
 
 function NextArrow(props: any) {
@@ -31,7 +31,7 @@ function PrevArrow(props: any) {
   );
 }
 
-export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined }: { totalJobs: number, recommendedJobs?: JobPosting[] }) {
+export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined }: { totalJobs: number, recommendedJobs?: Job[] }) {
     const { savedJobDetails, toggleSave, loading } = useSavedJobs();
 
     if (loading) {

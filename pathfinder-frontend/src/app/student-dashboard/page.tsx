@@ -12,14 +12,13 @@ import { CareerInsightsPage } from './CareerInsightsPage';
 import { ProfilePage } from './ProfilePage';
 import { MyApplicationsPage } from './MyApplicationsPage';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
-import AdminReports from '@/app/admin-dashboard/reports';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
-import type { JobPosting } from '@/types';
+import type { Job } from '@/types';
 
 export default function StudentDashboardPage() {
-    const [jobs, setJobs] = useState<JobPosting[]>([]);
+    const [jobs, setJobs] = useState<Job[]>([]);
     const [total, setTotal] = useState<number>(0);
-    const [recommended, setRecommended] = useState<JobPosting[]>([]);
+    const [recommended, setRecommended] = useState<Job[]>([]);
 
     useEffect(() => {
         fetchJobs();
@@ -33,9 +32,6 @@ export default function StudentDashboardPage() {
 
         fastAxiosInstance.get(url).then(
             response => {
-                response.data.jobs.forEach((job: JobPosting) => {
-                    job.applySite = job.link_to_posting ? new URL(job.link_to_posting).hostname.replace('www.', '').replace('.com', '') : 'Unknown';
-                });
                 setJobs(response.data.jobs);
                 setTotal(response.data.total);
             }
@@ -47,10 +43,7 @@ export default function StudentDashboardPage() {
     const fetchRecommendations = async () => {
         try {
             const res = await fastAxiosInstance.get('/api/recommendations?k=4');
-            const recs: JobPosting[] = res.data.jobs || [];
-            recs.forEach((job: JobPosting) => {
-                job.applySite = job.link_to_posting ? new URL(job.link_to_posting).hostname.replace('www.', '').replace('.com', '') : 'Unknown';
-            });
+            const recs: Job[] = res.data.jobs || [];
             setRecommended(recs);
         } catch (error) {
             console.error('Failed to fetch recommendations', error);

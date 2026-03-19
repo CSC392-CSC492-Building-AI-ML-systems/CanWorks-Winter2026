@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from jwt_auth import verify_jwt
 from database import get_db
-from models import Application, JobDescription, JobDescriptionSkill, Skill, JobPosting, SavedJob, ClickEvent, UserVisit, FeedLog
+from models import Application, Job, JobSkill, Skill, SavedJob, ClickEvent, UserVisit, FeedLog
 from schemas import (
     EmployerAnalyticsResponse,
     PipelineStats,
@@ -33,14 +33,14 @@ def get_employer_analytics(
     db: Session = Depends(get_db),
 ):
     # Get all employer's jobs
-    employer_jobs = db.query(JobDescription).filter(JobDescription.user_id == user_id).all()
+    employer_jobs = db.query(Job).filter(Job.employer_id == user_id).all()
     job_ids = [j.id for j in employer_jobs]
 
     # Applications for employer's jobs
     applications = []
     if job_ids:
         applications = db.query(Application).filter(
-            Application.job_description_id.in_(job_ids)
+            Application.job_id.in_(job_ids)
         ).all()
 
     # Pipeline breakdown
@@ -94,15 +94,15 @@ def get_employer_analytics(
     top_skills = []
     if job_ids:
         skill_rows = db.query(
-            Skill.skill_name, func.count(JobDescriptionSkill.id).label("cnt")
+            Skill.skill_name, func.count(JobSkill.id).label("cnt")
         ).join(
-            JobDescriptionSkill, Skill.id == JobDescriptionSkill.skill_id
+            JobSkill, Skill.id == JobSkill.skill_id
         ).filter(
-            JobDescriptionSkill.job_description_id.in_(job_ids)
+            JobSkill.job_id.in_(job_ids)
         ).group_by(
             Skill.skill_name
         ).order_by(
-            func.count(JobDescriptionSkill.id).desc()
+            func.count(JobSkill.id).desc()
         ).limit(10).all()
         top_skills = [TopSkillItem(skill_name=row[0], count=row[1]) for row in skill_rows]
 
@@ -112,7 +112,7 @@ def get_employer_analytics(
         uni_rows = db.query(
             Application.university, func.count(Application.id).label("cnt")
         ).filter(
-            Application.job_description_id.in_(job_ids),
+            Application.job_id.in_(job_ids),
             Application.university.isnot(None),
             Application.university != "",
         ).group_by(
@@ -144,13 +144,17 @@ def get_admin_analytics(
     today = date.today()
 
     # Total active admin-uploaded jobs
-    total_admin_jobs = db.query(JobPosting).filter(JobPosting.is_active == True).count()
+    total_admin_jobs = db.query(Job).filter(
+        Job.uploaded_by == "admin",
+        Job.status == "published",
+    ).count()
 
     # Employer jobs — published and not deleted, not expired
-    total_employer_jobs = db.query(JobDescription).filter(
-        JobDescription.status == "published",
-        JobDescription.deleted_at.is_(None),
-        (JobDescription.application_deadline.is_(None)) | (JobDescription.application_deadline >= today),
+    total_employer_jobs = db.query(Job).filter(
+        Job.uploaded_by == "employer",
+        Job.status == "published",
+        Job.deleted_at.is_(None),
+        (Job.application_deadline.is_(None)) | (Job.application_deadline >= today),
     ).count()
 
     # Platform-wide applications + pipeline
@@ -161,40 +165,27 @@ def get_admin_analytics(
         if app.status in pipeline_counts:
             pipeline_counts[app.status] += 1
 
-    # Jobs by type (from admin-uploaded jobs)
+    # Jobs by type (employment_type across all jobs)
     type_rows = db.query(
-        JobPosting.job_type, func.count(JobPosting.id)
+        Job.employment_type, func.count(Job.id)
     ).filter(
-        JobPosting.is_active == True,
-        JobPosting.job_type.isnot(None),
-    ).group_by(JobPosting.job_type).all()
+        Job.status == "published",
+        Job.employment_type.isnot(None),
+    ).group_by(Job.employment_type).all()
     jobs_by_type = [JobsByTypeItem(job_type=row[0], count=row[1]) for row in type_rows if row[0]]
 
-    # Jobs by province (combine admin + employer jobs)
-    admin_prov = db.query(
-        JobPosting.province, func.count(JobPosting.id)
+    # Jobs by province (single query on unified jobs table)
+    prov_rows = db.query(
+        Job.province, func.count(Job.id)
     ).filter(
-        JobPosting.is_active == True,
-        JobPosting.province.isnot(None),
-        JobPosting.province != "",
-    ).group_by(JobPosting.province).all()
+        Job.status == "published",
+        Job.deleted_at.is_(None),
+        Job.province.isnot(None),
+        Job.province != "",
+    ).group_by(Job.province).all()
 
-    employer_prov = db.query(
-        JobDescription.location_province, func.count(JobDescription.id)
-    ).filter(
-        JobDescription.status == "published",
-        JobDescription.deleted_at.is_(None),
-        JobDescription.location_province.isnot(None),
-        JobDescription.location_province != "",
-    ).group_by(JobDescription.location_province).all()
-
-    prov_map: dict[str, int] = {}
-    for row in admin_prov:
-        prov_map[row[0]] = prov_map.get(row[0], 0) + row[1]
-    for row in employer_prov:
-        prov_map[row[0]] = prov_map.get(row[0], 0) + row[1]
     jobs_by_province = sorted(
-        [JobsByProvinceItem(province=k, count=v) for k, v in prov_map.items()],
+        [JobsByProvinceItem(province=row[0], count=row[1]) for row in prov_rows],
         key=lambda x: x.count, reverse=True,
     )
 
@@ -203,13 +194,13 @@ def get_admin_analytics(
     unique_savers = db.query(func.count(distinct(SavedJob.user_id))).scalar() or 0
     avg_saved = round(total_saved_jobs / unique_savers, 1) if unique_savers > 0 else 0
 
-    # Top skills (platform-wide across all employer jobs)
+    # Top skills (platform-wide across all jobs)
     skill_rows = db.query(
-        Skill.skill_name, func.count(JobDescriptionSkill.id).label("cnt")
+        Skill.skill_name, func.count(JobSkill.id).label("cnt")
     ).join(
-        JobDescriptionSkill, Skill.id == JobDescriptionSkill.skill_id
+        JobSkill, Skill.id == JobSkill.skill_id
     ).group_by(Skill.skill_name).order_by(
-        func.count(JobDescriptionSkill.id).desc()
+        func.count(JobSkill.id).desc()
     ).limit(10).all()
     top_skills = [TopSkillItem(skill_name=row[0], count=row[1]) for row in skill_rows]
 
@@ -225,7 +216,7 @@ def get_admin_analytics(
     top_universities = [TopUniversityItem(university=row[0], count=row[1]) for row in uni_rows]
 
     # Employer job status counts (platform-wide)
-    all_employer_jobs = db.query(JobDescription).all()
+    all_employer_jobs = db.query(Job).filter(Job.uploaded_by == "employer").all()
     draft = published = expired = deleted = 0
     for j in all_employer_jobs:
         if j.deleted_at is not None:

@@ -1,20 +1,20 @@
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import JobPosting
-from sentence_transformers import SentenceTransformer
+from models import Job
+from fastembed import TextEmbedding
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 def compute():
     db: Session = SessionLocal()
     try:
-        jobs = db.query(JobPosting).all()
+        jobs = db.query(Job).all()
         count = 0
         for job in jobs:
             if not getattr(job, 'embedding', None):
                 text_blob = ' '.join(filter(None, [str(job.title or ''), str(job.employer or ''), str(job.description or '')]))
-                emb = model.encode(text_blob).tolist()
+                emb = next(model.embed([text_blob])).tolist()
                 job.embedding = emb
                 db.add(job)
                 count += 1

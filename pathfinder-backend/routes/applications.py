@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from jwt_auth import verify_jwt
 from database import get_db
-from models import Application, JobDescription
+from models import Application, Job
 from schemas import (
     ApplicationStatusUpdate,
     ApplicationResponse,
@@ -26,7 +26,7 @@ def _to_response(app: Application) -> ApplicationResponse:
     return ApplicationResponse(
         id=app.id,
         student_user_id=app.student_user_id,
-        job_description_id=app.job_description_id,
+        job_id=app.job_id,
         status=app.status,
         student_name=app.student_name,
         student_email=app.student_email,
@@ -38,7 +38,7 @@ def _to_response(app: Application) -> ApplicationResponse:
         resume_filename=app.resume_filename,
         applied_at=app.applied_at,
         updated_at=app.updated_at,
-        job_title=app.job_description.job_title if app.job_description else None,
+        job_title=app.job.title if app.job else None,
     )
 
 
@@ -46,7 +46,7 @@ def _to_response(app: Application) -> ApplicationResponse:
 @router.post("", response_model=ApplicationResponse)
 async def apply_to_job(
     request: Request,
-    job_description_id: str = Form(...),
+    job_id: str = Form(...),
     student_name: str = Form(default=""),
     student_email: str = Form(default=""),
     university: str = Form(default=""),
@@ -60,13 +60,13 @@ async def apply_to_job(
     user = verify_jwt(request)
     student_id = user["sub"]
 
-    job_desc_uuid = UUID(job_description_id)
+    job_uuid = UUID(job_id)
 
     # Verify job exists, is published, and not deleted
-    job = db.query(JobDescription).filter(
-        JobDescription.id == job_desc_uuid,
-        JobDescription.status == "published",
-        JobDescription.deleted_at.is_(None),
+    job = db.query(Job).filter(
+        Job.id == job_uuid,
+        Job.status == "published",
+        Job.deleted_at.is_(None),
     ).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found or not accepting applications")
@@ -78,7 +78,7 @@ async def apply_to_job(
     # Prevent duplicate
     existing = db.query(Application).filter(
         Application.student_user_id == student_id,
-        Application.job_description_id == job_desc_uuid,
+        Application.job_id == job_uuid,
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="You have already applied to this job")
@@ -106,7 +106,7 @@ async def apply_to_job(
 
     application = Application(
         student_user_id=student_id,
-        job_description_id=job_desc_uuid,
+        job_id=job_uuid,
         student_name=student_name or None,
         student_email=student_email or None,
         university=university or None,
@@ -152,7 +152,7 @@ def get_my_applications(
 # Employer lists applications for their jobs
 @router.get("", response_model=ApplicationListResponse)
 def list_applications(
-    job_description_id: UUID = Query(default=None),
+    job_id: UUID = Query(default=None),
     status: str = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -161,19 +161,19 @@ def list_applications(
 ):
     # Get all job IDs owned by this employer
     employer_job_ids = [
-        j.id for j in db.query(JobDescription.id).filter(
-            JobDescription.user_id == user_id,
-            JobDescription.deleted_at.is_(None),
+        j.id for j in db.query(Job.id).filter(
+            Job.employer_id == user_id,
+            Job.deleted_at.is_(None),
         ).all()
     ]
 
     if not employer_job_ids:
         return ApplicationListResponse(applications=[], total=0, page=page, page_size=page_size)
 
-    query = db.query(Application).filter(Application.job_description_id.in_(employer_job_ids))
+    query = db.query(Application).filter(Application.job_id.in_(employer_job_ids))
 
-    if job_description_id:
-        query = query.filter(Application.job_description_id == job_description_id)
+    if job_id:
+        query = query.filter(Application.job_id == job_id)
     if status:
         query = query.filter(Application.status == status)
 
@@ -205,8 +205,8 @@ def update_application_status(
         raise HTTPException(status_code=404, detail="Application not found")
 
     # Verify the employer owns the job this application belongs to
-    job = db.query(JobDescription).filter(JobDescription.id == application.job_description_id).first()
-    if not job or job.user_id != user_id:
+    job = db.query(Job).filter(Job.id == application.job_id).first()
+    if not job or job.employer_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     application.status = data.status

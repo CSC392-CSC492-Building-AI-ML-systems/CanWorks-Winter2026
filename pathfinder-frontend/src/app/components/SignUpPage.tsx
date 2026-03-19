@@ -8,6 +8,51 @@ import { GraduationCap, Building2, Shield, Crown } from 'lucide-react';
 import { SkillMultiSelect } from '@/app/components/SkillMultiSelect';
 import type { UserType, UserData, User } from '@/types';
 
+
+const PRIVACY_POLICY_TEXT = `Privacy Policy
+
+Last Updated: March 2026
+
+Consent to Collection and Use of Personal Information (Canada – PIPEDA)
+
+Information We Collect
+We collect the minimum personal information necessary to provide our services, including:
+    - Education level
+    - School(s) attended
+    - Area of study
+    - Email address
+    - City and province of residence
+We do not collect:
+    - Date of birth
+    - Street address
+    - Social Insurance Number (SIN)
+
+Purpose of Collection
+Your personal information is collected and used for the following purposes:
+    - To create and manage your account
+    - To provide personalized job recommendations tailored for you 
+    - To communicate relevant employment opportunities
+    - To conduct analysis using aggregated and de-identified data to generate labour market insights that support career, upskilling decisions, enhance other research and inform policy. 
+
+Your information will only be used for the purposes identified above or as otherwise permitted or required by law.
+
+Third-Party Service Providers
+We may transfer or store your personal information with trusted third-party service providers (such as secure cloud hosting providers) who assist us in operating our platform. These providers are contractually required to safeguard your information and may only use it for the purposes of providing services to us.
+Your information may be processed or stored outside your province of residence and may be subject to the laws of those jurisdictions.
+
+No Sale of Personal Information
+We do not sell, rent, or trade your personal information to other organizations.
+
+Withdrawal of Consent and Deletion
+You may withdraw your consent and cancel your account at any time by using the account deletion feature.
+Upon cancellation:
+    - Your personal information will be permanently deleted from our active systems within 24 hours,
+    - Except where retention is required to comply with applicable legal obligations.
+
+Right of Access and Correction
+You have the right to request access to the personal information we hold about you and to request corrections if you believe the information is inaccurate or incomplete. Requests may be submitted through your account settings or by contacting us as outlined in our Privacy Policy.
+`;
+
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 6 }, (_, i) => currentYear + i);
 const months = [
@@ -68,6 +113,15 @@ export function SignUpPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [onprivacyPolicyAcceptedFn, setOnprivacyPolicyAcceptedFn] = useState<(() => void) | null>(null);
+    const [privacyPolicyAgreed, setPrivacyPolicyAgreed] = useState(false);
+    const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState(false);
+
+    function handlePrivacyPolicy(onConsentFn: () => void) {
+        setOnprivacyPolicyAcceptedFn(() => onConsentFn);
+        setPrivacyPolicyOpen(true);
+        setPrivacyPolicyAgreed(false);
+    }
 
     async function handleSignUp(email: string, password: string, userData: UserData) {
         setError(null);
@@ -127,7 +181,7 @@ export function SignUpPage() {
     const handleStudentSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        handleSignUp(userFormData.email, userFormData.password, {
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
             userType: 'student',
             university: studentFormData.university,
             graduationMonth: studentFormData.graduationMonth,
@@ -136,13 +190,13 @@ export function SignUpPage() {
             coopSchool: lookingFor.includes('coop') ? coopSchool : undefined,
             major: studentFormData.major,
             skills: studentFormData.skills.split(',').map(s => s.trim()).filter(Boolean),
-        });
+        }));
     };
 
     const handleEmployerSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        handleSignUp(userFormData.email, userFormData.password, {
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
             userType: 'employer',
             companyName: employerFormData.companyName,
             contactInfo: {
@@ -153,23 +207,23 @@ export function SignUpPage() {
             availableForEvents: employerFormData.availableForEvents,
             sponsor: employerFormData.sponsor,
             specialNotes: employerFormData.specialNotes,
-        });
+        }));
     };
 
     const handleAdminSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        handleSignUp(userFormData.email, userFormData.password, {
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
             userType: 'admin',
-        });
+        }));
     };
 
     const handleSuperAdminSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        handleSignUp(userFormData.email, userFormData.password, {
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
             userType: 'super-admin',
-        });
+        }));
     };
 
     const toggleLookingFor = (type: 'internship' | 'coop' | 'new-grad') => {
@@ -184,6 +238,41 @@ export function SignUpPage() {
         { type: 'super-admin', label: 'Super Admin', icon: Crown, description: 'Full access' },
     ];
     
+    if  (privacyPolicyOpen) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-y-auto p-6 space-y-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold">Privacy Policy</h2>
+                            <button
+                                onClick={() => {
+                                    setPrivacyPolicyOpen(false);
+                                    setPrivacyPolicyAgreed(false);
+                                }}
+                                className="text-gray-500 hover:text-gray-700 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="text-sm whitespace-pre-wrap text-gray-700">
+                            {PRIVACY_POLICY_TEXT}
+                        </div>
+                        <Button
+                            onClick={() => {
+                                if (onprivacyPolicyAcceptedFn) onprivacyPolicyAcceptedFn();
+                                setPrivacyPolicyOpen(false);
+                                setPrivacyPolicyAgreed(false);
+                            }}
+                            className="w-full mt-4"
+                        >
+                            Accept
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div>

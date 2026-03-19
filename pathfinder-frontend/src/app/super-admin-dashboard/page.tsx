@@ -10,7 +10,7 @@ import AdminJobManagement from '@/app/admin-dashboard/jobManagement';
 
 export default function AdminDashboardPage() {
   return (
-    <UserProvider userType={"admin"}>
+    <UserProvider userType={"super-admin"}>
         <CheckUser requireUser={true}>
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="max-w-7xl mx-auto px-4">

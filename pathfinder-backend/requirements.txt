@@ -12,5 +12,6 @@ cryptography
 httpx
 supabase
 requests
-sentence-transformers
+fastembed
 pgvector
+sentence-transformers

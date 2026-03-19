@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, Button } from '@/app/componen
 import { Clock } from 'lucide-react';
 import { jobDescriptionApi } from './api';
 import { JobDescriptionCard } from './JobDescriptionCard';
-import type { JobDescription } from '@/types';
+import type { Job } from '@/types';
 
 export function JobPostingsHistoryPage() {
-    const [jobs, setJobs] = useState<JobDescription[]>([]);
+    const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'deleted' | 'expired'>('deleted');
 
@@ -19,7 +19,7 @@ export function JobPostingsHistoryPage() {
                 ? { include_deleted: true }
                 : { include_expired: true };
             const response = await jobDescriptionApi.list(params);
-            setJobs(response.data.job_descriptions);
+            setJobs(response.data.jobs);
         } catch (error) {
             console.error('Failed to fetch history', error);
         } finally {

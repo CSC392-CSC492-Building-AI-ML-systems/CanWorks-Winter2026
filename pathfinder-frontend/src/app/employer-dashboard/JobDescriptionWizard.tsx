@@ -61,15 +61,15 @@ export function JobDescriptionWizard({ jobId, templateData, onComplete, onCancel
             jobDescriptionApi.get(jobId).then((res) => {
                 const job = res.data;
                 setFormData({
-                    job_title: job.job_title || '',
+                    job_title: job.title || '',
                     industry: job.industry || '',
                     job_function: job.job_function || '',
                     seniority_level: job.seniority_level || '',
                     employment_type: job.employment_type || '',
-                    location_type: job.location_type || '',
-                    location_city: job.location_city || '',
-                    location_province: job.location_province || '',
-                    job_description: job.job_description || '',
+                    location_type: job.mode || '',
+                    location_city: job.city || '',
+                    location_province: job.province || '',
+                    job_description: job.description || '',
                     responsibilities: job.responsibilities?.length ? job.responsibilities : [''],
                     required_skills: (job.skills || [])
                         .filter((s: any) => s.skill_type === 'required')
