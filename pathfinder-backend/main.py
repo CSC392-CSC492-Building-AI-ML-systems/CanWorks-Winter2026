@@ -435,11 +435,15 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
 
     emb_list = []
     for s in saved:
-        if s.job and getattr(s.job, 'embedding', None):
-            emb_list.append(np.array(s.job.embedding))
+        if s.job is not None:
+            embedding = getattr(s.job, 'embedding', None)
+            if embedding is not None and len(embedding) > 0:
+                emb_list.append(np.array(embedding))
     for e in view_events:
-        if e.job and getattr(e.job, 'embedding', None):
-            emb_list.append(np.array(e.job.embedding))
+        if e.job is not None:
+            embedding = getattr(e.job, 'embedding', None)
+            if embedding is not None and len(embedding) > 0:
+                emb_list.append(np.array(embedding))
 
     if len(emb_list) == 0:
         # fallback: return most recent published jobs
@@ -453,9 +457,10 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
     candidates = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).all()
     scored = []
     for job in candidates:
-        if not getattr(job, 'embedding', None):
+        embedding = getattr(job, 'embedding', None)
+        if embedding is None or len(embedding) == 0:
             continue
-        job_emb = np.array(job.embedding)
+        job_emb = np.array(embedding)
         # cosine similarity
         sim = float(np.dot(user_emb, job_emb) / (np.linalg.norm(user_emb) * np.linalg.norm(job_emb) + 1e-10))
         scored.append((sim, job))

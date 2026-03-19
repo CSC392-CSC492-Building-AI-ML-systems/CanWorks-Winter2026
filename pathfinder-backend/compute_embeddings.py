@@ -12,7 +12,8 @@ def compute():
         jobs = db.query(Job).all()
         count = 0
         for job in jobs:
-            if not getattr(job, 'embedding', None):
+            embedding = getattr(job, 'embedding', None)
+            if embedding is None or len(embedding) == 0:
                 text_blob = ' '.join(filter(None, [str(job.title or ''), str(job.employer or ''), str(job.description or '')]))
                 emb = next(model.embed([text_blob])).tolist()
                 job.embedding = emb
