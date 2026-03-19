@@ -10,8 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent
-from schemas import JobResponse, JobListResponse, UploadResponse
+from models import Job, JobPosting, SavedJob, CareerInsight, JobDescription, FeedLog, JobEvent, JobSkill, Skill
+from schemas import JobResponse, JobListResponse, JobPostingResponse, JobPostingListResponse, UploadResponse, JobDescriptionListResponse, JobDescriptionResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
 from excel_parser import parse_excel_file

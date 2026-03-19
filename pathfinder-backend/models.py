@@ -33,7 +33,14 @@ class Job(Base):
     target_audience = Column(String, nullable=True)
     other_academic_requirements = Column(Text, nullable=True)
     link_to_posting = Column(String, nullable=True)
-
+    
+    # relationship to link skills
+    job_skills = relationship("JobSkill", back_populates="job", cascade="all, delete-orphan")
+    # read-only convenience property for skill names
+    @property
+    def skills(self):
+        return [js.skill.skill_name for js in self.job_skills]
+     
     # Employer-specific
     template_id = Column(UUID(as_uuid=True), ForeignKey("templates.id"), nullable=True)
     industry = Column(String, nullable=True)
@@ -122,6 +129,62 @@ class Skill(Base):
     skill_category = Column(String, nullable=True)
     status = Column(String, default="active")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class JobSkill(Base):
+    __tablename__ = "job_skills"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False)
+    skill_id = Column(UUID(as_uuid=True), ForeignKey("skills.id", ondelete="CASCADE"), nullable=False)
+
+    job = relationship("JobPosting", back_populates="job_skills")
+    skill = relationship("Skill")
+
+class UserSkill(Base):
+    __tablename__ = "user_skills"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, nullable=False, index=True)
+    skill_id = Column(UUID(as_uuid=True), ForeignKey("skills.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    skill = relationship("Skill")
+
+class JobDescription(Base): # jobs that employers create themselves
+    __tablename__ = "job_descriptions"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, nullable=False, index=True)
+    template_id = Column(UUID(as_uuid=True), ForeignKey("templates.id"), nullable=True)
+    job_title = Column(String, nullable=False)
+    industry = Column(String, nullable=True)
+    job_function = Column(String, nullable=True)
+    seniority_level = Column(String, nullable=True)
+    employment_type = Column(String, nullable=True)
+    location_type = Column(String, nullable=True)
+    location_city = Column(String, nullable=True)
+    location_province = Column(String, nullable=True)
+    job_description = Column(Text, nullable=True)
+    responsibilities = Column(JSON, nullable=True)
+    qualifications = Column(Text, nullable=True)
+    compensation_min = Column(Numeric, nullable=True)
+    compensation_max = Column(Numeric, nullable=True)
+    compensation_currency = Column(String, default="CAD")
+    application_deadline = Column(Date, nullable=True)
+    status = Column(String, default="draft")
+    created_at = Column(DateTime, default=lambda:datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda:datetime.now(timezone.utc), onupdate=lambda:datetime.now(timezone.utc))
+    published_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
+    skills = relationship("JobDescriptionSkill", back_populates="job_description", cascade="all, delete-orphan")
+
+
+class JobDescriptionSkill(Base): # Relationship table connecting Skill and JobDescription
+    __tablename__ = "job_description_skills"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    job_description_id = Column(UUID(as_uuid=True), ForeignKey("job_descriptions.id"), nullable=False)
+    skill_id = Column(UUID(as_uuid=True), ForeignKey("skills.id"), nullable=False)
+    skill_type = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda:datetime.now(timezone.utc))
+    job_description = relationship("JobDescription", back_populates="skills")
+    skill = relationship("Skill")
 
 
 class Application(Base):

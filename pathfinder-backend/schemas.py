@@ -61,6 +61,7 @@ class JobResponse(BaseModel):
     published_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    skills: Optional[list[str]] = []
 
     class Config:
         from_attributes = True

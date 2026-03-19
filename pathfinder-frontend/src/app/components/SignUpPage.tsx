@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/components/authComponents';
 import { Button, Input, CheckBox, Textarea, Switch, Card, CardContent, Label, Alert, AlertDescription  } from '@/app/components/globalComponents';
 import { GraduationCap, Building2, Shield, Crown } from 'lucide-react';
+import { SkillMultiSelect } from '@/app/components/SkillMultiSelect';
 import type { UserType, UserData, User } from '@/types';
 
 
@@ -59,6 +60,52 @@ const months = [
     'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const PRIVACY_POLICY_TEXT = `Privacy Policy
+
+Last Updated: March 2026
+
+Consent to Collection and Use of Personal Information (Canada – PIPEDA)
+
+Information We Collect
+We collect the minimum personal information necessary to provide our services, including:
+    - Education level
+    - School(s) attended
+    - Area of study
+    - Email address
+    - City and province of residence
+We do not collect:
+    - Date of birth
+    - Street address
+    - Social Insurance Number (SIN)
+
+Purpose of Collection
+Your personal information is collected and used for the following purposes:
+    - To create and manage your account
+    - To provide personalized job recommendations tailored for you 
+    - To communicate relevant employment opportunities
+    - To conduct analysis using aggregated and de-identified data to generate labour market insights that support career, upskilling decisions, enhance other research and inform policy. 
+
+Your information will only be used for the purposes identified above or as otherwise permitted or required by law.
+
+Third-Party Service Providers
+We may transfer or store your personal information with trusted third-party service providers (such as secure cloud hosting providers) who assist us in operating our platform. These providers are contractually required to safeguard your information and may only use it for the purposes of providing services to us.
+Your information may be processed or stored outside your province of residence and may be subject to the laws of those jurisdictions.
+
+No Sale of Personal Information
+We do not sell, rent, or trade your personal information to other organizations.
+
+Withdrawal of Consent and Deletion
+You may withdraw your consent and cancel your account at any time by using the account deletion feature.
+Upon cancellation:
+    - Your personal information will be permanently deleted from our active systems within 24 hours,
+    - Except where retention is required to comply with applicable legal obligations.
+
+Right of Access and Correction
+You have the right to request access to the personal information we hold about you and to request corrections if you believe the information is inaccurate or incomplete. Requests may be submitted through your account settings or by contacting us as outlined in our Privacy Policy.
+`;
+
+
+
 export function SignUpPage() {
     const router = useRouter();
     const { user, signUp } = useUser();
@@ -108,6 +155,9 @@ export function SignUpPage() {
         major: '',
         skills: '',
     });
+    const [studentConsentAgreed, setStudentConsentAgreed] = useState(false);
+    const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState(false);
+    const [termsOfServiceOpen, setTermsOfServiceOpen] = useState(false);
     const [lookingFor, setLookingFor] = useState<('internship' | 'coop' | 'new-grad')[]>([]);
     const [coopSchool, setCoopSchool] = useState('');
 
@@ -416,7 +466,29 @@ export function SignUpPage() {
                         <p className="text-sm text-gray-500">This helps us suggest roles you might not think about</p>
                         </div>
 
-                        <Button type="submit" className="w-full" loading={loading}>
+                        <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex gap-3">
+                                <CheckBox
+                                    id="student-consent"
+                                    checked={studentConsentAgreed}
+                                    onChange={(checked) => setStudentConsentAgreed(checked)}
+                                />
+                                <Label htmlFor="student-consent" className="text-sm cursor-pointer flex-1">
+                                    By creating an account, you consent to the collection, use, storage, and 
+                                    disclosure of your personal information in accordance with this notice and our{' '}
+                                    <button
+                                        type="button"
+                                        onClick={() => setPrivacyPolicyOpen(true)}
+                                        className="text-blue-600 hover:underline text-sm"
+                                    >
+                                        Privacy Policy
+                                    </button>
+
+                                </Label>
+                            </div>
+                        </div>
+
+                        <Button type="submit" className="w-full" loading={loading} disabled={!studentConsentAgreed}>
                             Create Student Account
                         </Button>
                     </form>
@@ -622,6 +694,58 @@ export function SignUpPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Privacy Policy Modal */}
+            {privacyPolicyOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-y-auto p-6 space-y-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold">Privacy Policy</h2>
+                            <button
+                                onClick={() => setPrivacyPolicyOpen(false)}
+                                className="text-gray-500 hover:text-gray-700 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="text-sm whitespace-pre-wrap text-gray-700">
+                            {PRIVACY_POLICY_TEXT}
+                        </div>
+                        <Button
+                            onClick={() => setPrivacyPolicyOpen(false)}
+                            className="w-full mt-4"
+                        >
+                            Close
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Terms of Service Modal */}
+            {termsOfServiceOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-y-auto p-6 space-y-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold">Terms of Service</h2>
+                            <button
+                                onClick={() => setTermsOfServiceOpen(false)}
+                                className="text-gray-500 hover:text-gray-700 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="text-sm whitespace-pre-wrap text-gray-700">
+                            {TERMS_OF_SERVICE_TEXT}
+                        </div>
+                        <Button
+                            onClick={() => setTermsOfServiceOpen(false)}
+                            className="w-full mt-4"
+                        >
+                            Close
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

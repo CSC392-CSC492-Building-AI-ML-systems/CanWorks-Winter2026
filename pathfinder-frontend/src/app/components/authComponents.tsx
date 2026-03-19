@@ -94,6 +94,66 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
         if (newUser.email) payload.email = newUser.email;
         if (newUser.userData) payload.data = { userData: newUser.userData };
 
+        // Handle skills separately - they need to be synced with the backend
+        if (newUser.userData?.skills) {
+            const API_BASE = 'http://127.0.0.1:8000';
+            try {
+                // Get current user skills from backend
+                // obtain bearer token for auth with backend
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            const headers: Record<string,string> = {
+                'Content-Type': 'application/json',
+            };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const skillsResponse = await fetch(`${API_BASE}/api/skills/user`, { headers });
+                if (skillsResponse.ok) {
+                    const currentSkillsData = await skillsResponse.json();
+                    const currentSkills = currentSkillsData.user_skills.map((us: any) => us.skill_name);
+
+                    // Find skills to add and remove
+                    const newSkills = newUser.userData.skills;
+                    const skillsToAdd = newSkills.filter((skill: string) => !currentSkills.includes(skill));
+                    const skillsToRemove = currentSkills.filter((skill: string) => !newSkills.includes(skill));
+
+                    // Add new skills
+                    for (const skillName of skillsToAdd) {
+                        // First get the skill ID
+                        const skillSearchResponse = await fetch(`${API_BASE}/api/skills?q=${encodeURIComponent(skillName)}`, { headers });
+                        if (skillSearchResponse.ok) {
+                            const skillData = await skillSearchResponse.json();
+                            const skill = skillData.skills.find((s: any) => s.skill_name === skillName);
+                            if (skill) {
+                                await fetch(`${API_BASE}/api/skills/user`, {
+                                    method: 'POST',
+                                    headers,
+                                    body: JSON.stringify({ skill_id: skill.id })
+                                });
+                            }
+                        }
+                    }
+
+                    // Remove old skills
+                    for (const skillName of skillsToRemove) {
+                        const skillSearchResponse = await fetch(`${API_BASE}/api/skills?q=${encodeURIComponent(skillName)}`, { headers });
+                        if (skillSearchResponse.ok) {
+                            const skillData = await skillSearchResponse.json();
+                            const skill = skillData.skills.find((s: any) => s.skill_name === skillName);
+                            if (skill) {
+                                await fetch(`${API_BASE}/api/skills/user/${skill.id}`, {
+                                    method: 'DELETE',
+                                    headers,
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to sync skills:', error);
+            }
+        }
+
         const { data: { user: supaUser }, error } = await supabase.auth.updateUser(payload);
         if (!error && supaUser) {
             const newUser = convertUser(supaUser);
