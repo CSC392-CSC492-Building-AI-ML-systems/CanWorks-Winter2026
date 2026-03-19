@@ -4,9 +4,10 @@ import React from 'react';
 // Updated imports to use the single widgets file
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
-import { BarChart3, Briefcase } from 'lucide-react';
+import { BarChart3, Briefcase, Building } from 'lucide-react';
 import AdminReports from '@/app/admin-dashboard/reports';
 import AdminJobManagement from '@/app/admin-dashboard/jobManagement';
+import StartupContactsManager from '@/app/admin-dashboard/StartupContactsManager';
 
 export default function AdminDashboardPage() {
   return (
@@ -30,6 +31,10 @@ export default function AdminDashboardPage() {
                         <Briefcase className="w-4 h-4" />
                         Job Management
                         </TabsTrigger>
+                        <TabsTrigger value="startups" className="flex items-center gap-2">
+                        <Building className="w-4 h-4" />
+                        Startup Contacts
+                        </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="reports" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
@@ -38,6 +43,10 @@ export default function AdminDashboardPage() {
 
                     <TabsContent value="jobs" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
                         <AdminJobManagement />
+                    </TabsContent>
+
+                    <TabsContent value="startups" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
+                        <StartupContactsManager />
                     </TabsContent>
                     </Tabs>
                 </div>

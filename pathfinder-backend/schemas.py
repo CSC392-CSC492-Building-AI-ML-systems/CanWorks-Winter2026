@@ -351,3 +351,74 @@ class CareerInsightsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Startup Contact schemas
+class StartupContactCreate(BaseModel):
+    contact_name: str
+    email: str
+    company_name: str
+    website: Optional[str] = None
+    industry: Optional[str] = None
+
+class StartupContactUpdate(BaseModel):
+    contact_name: Optional[str] = None
+    email: Optional[str] = None
+    company_name: Optional[str] = None
+    website: Optional[str] = None
+    industry: Optional[str] = None
+
+class StartupContactResponse(BaseModel):
+    id: UUID
+    contact_name: str
+    email: str
+    company_name: str
+    website: Optional[str] = None
+    industry: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Student Resume schemas
+class StudentResumeResponse(BaseModel):
+    id: UUID
+    student_user_id: str
+    resume_url: str
+    resume_filename: Optional[str] = None
+    uploaded_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Email Draft schemas
+class EmailDraftGenerateRequest(BaseModel):
+    startup_contact_ids: List[UUID]
+    role_interest: str
+
+class EmailDraftUpdate(BaseModel):
+    subject: Optional[str] = None
+    body: Optional[str] = None
+
+class EmailDraftResponse(BaseModel):
+    id: UUID
+    student_user_id: str
+    startup_contact_id: UUID
+    role_interest: str
+    subject: str
+    body: str
+    status: str
+    moderation_result: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    startup_contact: Optional[StartupContactResponse] = None
+
+    class Config:
+        from_attributes = True
+
+# Gmail status schema
+class GmailStatusResponse(BaseModel):
+    connected: bool
+    email: Optional[str] = None

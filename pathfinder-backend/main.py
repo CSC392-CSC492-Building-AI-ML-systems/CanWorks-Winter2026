@@ -25,6 +25,10 @@ from routes.templates import router as templates_router
 from routes.skills import router as skills_router
 from routes.applications import router as applications_router
 from routes.analytics import router as analytics_router
+from routes.startup_contacts import router as startup_contacts_router, public_router as startup_contacts_public_router
+from routes.student_resume import router as student_resume_router
+from routes.outreach import router as outreach_router
+from routes.gmail_auth import router as gmail_auth_router
 from upload_images import upload_career_images
 
 from jwt_auth import verify_jwt
@@ -112,6 +116,11 @@ app.include_router(templates_router)
 app.include_router(skills_router)
 app.include_router(applications_router)
 app.include_router(analytics_router)
+app.include_router(startup_contacts_router)
+app.include_router(startup_contacts_public_router)
+app.include_router(student_resume_router)
+app.include_router(outreach_router)
+app.include_router(gmail_auth_router)
 
 # Upload endpoint
 # register a POST route

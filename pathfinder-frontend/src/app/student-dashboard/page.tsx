@@ -1,21 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 // Updated imports to use the single widgets file
 // Updated imports to use the single widgets file
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { Header } from '@/app/components/header'
-import { BarChart3, Briefcase, FileText } from 'lucide-react';
+import { BarChart3, Briefcase, FileText, Mail } from 'lucide-react';
 import { HomePage } from './HomePage';
 import { ExplorePage } from './ExplorePage';
 import { CareerInsightsPage } from './CareerInsightsPage';
 import { ProfilePage } from './ProfilePage';
 import { MyApplicationsPage } from './MyApplicationsPage';
+import { OutreachPage } from './OutreachPage';
+import { EmailDraftsPage } from './EmailDraftsPage';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
 import type { Job } from '@/types';
 
 export default function StudentDashboardPage() {
+    const searchParams = useSearchParams();
+    const defaultTab = useMemo(() => searchParams.get('tab') || 'home', [searchParams]);
     const [jobs, setJobs] = useState<Job[]>([]);
     const [total, setTotal] = useState<number>(0);
     const [recommended, setRecommended] = useState<Job[]>([]);
@@ -60,7 +65,7 @@ export default function StudentDashboardPage() {
                         >
                         </Header>
 
-                        <Tabs defaultValue="home" className="space-y-6">
+                        <Tabs defaultValue={defaultTab} className="space-y-6">
                         {/* Updated TabsList to be cleaner without grid constraints */}
                         <TabsList className="mb-6">
                             <TabsTrigger value="home" className="flex items-center gap-2">
@@ -82,6 +87,14 @@ export default function StudentDashboardPage() {
                             <TabsTrigger value="profile" className="flex items-center gap-2">
                             <Briefcase className="w-4 h-4" />
                             Profile
+                            </TabsTrigger>
+                            <TabsTrigger value="outreach" className="flex items-center gap-2">
+                            <Mail className="w-4 h-4" />
+                            Outreach
+                            </TabsTrigger>
+                            <TabsTrigger value="email-drafts" className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            Email Drafts
                             </TabsTrigger>
                         </TabsList>
 
@@ -108,6 +121,14 @@ export default function StudentDashboardPage() {
                         <TabsContent value="profile" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
                                 <ProfilePage>
                                 </ProfilePage>
+                        </TabsContent>
+
+                        <TabsContent value="outreach" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
+                                <OutreachPage />
+                        </TabsContent>
+
+                        <TabsContent value="email-drafts" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
+                                <EmailDraftsPage />
                         </TabsContent>
                         </Tabs>
                     </div>

@@ -177,6 +177,56 @@ class FeedLog(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class StartupContact(Base):
+    __tablename__ = "startup_contacts"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contact_name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    company_name = Column(String, nullable=False)
+    website = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class StudentResume(Base):
+    __tablename__ = "student_resumes"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_user_id = Column(String, nullable=False, index=True)
+    resume_url = Column(String, nullable=False)
+    resume_filename = Column(String, nullable=True)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class EmailDraft(Base):
+    __tablename__ = "email_drafts"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_user_id = Column(String, nullable=False, index=True)
+    startup_contact_id = Column(UUID(as_uuid=True), ForeignKey("startup_contacts.id"), nullable=False)
+    role_interest = Column(String, nullable=False)
+    subject = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    status = Column(String, default="draft")  # draft, approved, sending, sent, failed, flagged
+    moderation_result = Column(String, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    startup_contact = relationship("StartupContact")
+
+
+class GmailToken(Base):
+    __tablename__ = "gmail_tokens"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_user_id = Column(String, nullable=False, unique=True, index=True)
+    gmail_email = Column(String, nullable=True)
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    token_expiry = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
 class CareerInsight(Base):
     __tablename__ = "career_insights"
     id = Column(Integer, primary_key=True, autoincrement=True)
