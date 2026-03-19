@@ -6,10 +6,10 @@ import { CheckCircle } from 'lucide-react';
 import { jobDescriptionApi } from './api';
 import { JobDescriptionCard } from './JobDescriptionCard';
 import { JobDescriptionWizard } from './JobDescriptionWizard';
-import type { JobDescription } from '@/types';
+import type { Job } from '@/types';
 
 export function ActiveJobPostingsPage() {
-    const [jobs, setJobs] = useState<JobDescription[]>([]);
+    const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
@@ -17,7 +17,7 @@ export function ActiveJobPostingsPage() {
         setLoading(true);
         try {
             const response = await jobDescriptionApi.list({ status: 'published' });
-            setJobs(response.data.job_descriptions);
+            setJobs(response.data.jobs);
         } catch (error) {
             console.error('Failed to fetch active postings', error);
         } finally {

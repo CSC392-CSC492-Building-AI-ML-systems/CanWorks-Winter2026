@@ -2,155 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { JobCard } from '@/app/components/JobCard';
 import { Card, CheckBox, Label, Input, Button, Badge } from '@/app/components/globalComponents';
 import { Search, Bell, BellRing, Mail, MapPin, Briefcase, Send, X, FileText, Upload } from 'lucide-react';
-import type { SavedSearch, JobPosting, JobDescription, StudentUserData } from '@/types';
+import type { SavedSearch, Job, JobSkill, StudentUserData } from '@/types';
 import JobDetailsSidebar from '@/app/components/JobDetailsSidebar';
 import { useSavedJobs } from "@/app/hooks/useSavedJobs";
 import { useUser } from '@/app/components/authComponents';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
 
 interface ExplorePageProps {
-    jobs: JobPosting[];
+    jobs: Job[];
     total: number;
-}
-
-// Employer job detail sidebar
-function EmployerJobDetailSidebar({
-    job,
-    onClose,
-    onApply,
-    applied,
-}: {
-    job: JobDescription | null;
-    onClose: () => void;
-    onApply: (jobId: string) => void;
-    applied: boolean;
-}) {
-    if (!job) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true">
-            <div className="fixed inset-0 bg-transparent z-40" onClick={onClose} />
-            <aside
-                className="ml-auto w-full max-w-md bg-white shadow-xl overflow-y-auto transform transition-transform duration-200 z-50 pointer-events-auto"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="p-4 border-b flex items-center justify-between">
-                    <div>
-                        <h3 className="text-lg font-semibold line-clamp-2">{job.job_title}</h3>
-                        <p className="text-sm text-gray-500">
-                            {[job.location_city, job.location_province].filter(Boolean).join(', ') || 'Location not specified'}
-                        </p>
-                    </div>
-                    <button onClick={onClose} aria-label="Close" className="p-2 rounded hover:bg-gray-100">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="p-4 space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                        {job.employment_type && <Badge>{job.employment_type}</Badge>}
-                        {job.location_type && <Badge variant="secondary">{job.location_type}</Badge>}
-                        {job.seniority_level && <Badge variant="secondary">{job.seniority_level}</Badge>}
-                    </div>
-
-                    {job.industry && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-600">Industry</h4>
-                            <p className="text-sm">{job.industry}</p>
-                        </div>
-                    )}
-
-                    {job.job_function && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-600">Job Function</h4>
-                            <p className="text-sm">{job.job_function}</p>
-                        </div>
-                    )}
-
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-600">Description</h4>
-                        <p className="prose text-sm max-w-none whitespace-pre-wrap">
-                            {job.job_description || 'No description available.'}
-                        </p>
-                    </div>
-
-                    {job.responsibilities && job.responsibilities.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-600">Responsibilities</h4>
-                            <ul className="list-disc list-inside text-sm space-y-1 mt-1">
-                                {job.responsibilities.map((r, i) => (
-                                    <li key={i}>{r}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {job.qualifications && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-600">Qualifications</h4>
-                            <p className="text-sm whitespace-pre-wrap">{job.qualifications}</p>
-                        </div>
-                    )}
-
-                    {job.skills && job.skills.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-600">Skills</h4>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                                {job.skills.map((s) => (
-                                    <span
-                                        key={s.skill_id}
-                                        className={`px-3 py-1 rounded-full text-sm ${
-                                            s.skill_type === 'required'
-                                                ? 'bg-blue-100 text-blue-700'
-                                                : 'bg-gray-100 text-gray-700'
-                                        }`}
-                                    >
-                                        {s.skill_name}
-                                        <span className="text-xs ml-1 opacity-70">
-                                            ({s.skill_type})
-                                        </span>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {(job.compensation_min != null || job.compensation_max != null) && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-600">Compensation</h4>
-                            <p className="text-sm">
-                                {job.compensation_min != null && job.compensation_max != null
-                                    ? `$${job.compensation_min.toLocaleString()} - $${job.compensation_max.toLocaleString()} ${job.compensation_currency}`
-                                    : job.compensation_min != null
-                                    ? `From $${job.compensation_min.toLocaleString()} ${job.compensation_currency}`
-                                    : `Up to $${job.compensation_max!.toLocaleString()} ${job.compensation_currency}`}
-                            </p>
-                        </div>
-                    )}
-
-                    {job.application_deadline && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-600">Application Deadline</h4>
-                            <p className="text-sm">{new Date(job.application_deadline).toLocaleDateString()}</p>
-                        </div>
-                    )}
-
-                    <div className="pt-4 border-t">
-                        {applied ? (
-                            <Button variant="outline" className="w-full" disabled>
-                                Already Applied
-                            </Button>
-                        ) : (
-                            <Button className="w-full" onClick={() => onApply(job.id)}>
-                                <Send className="w-4 h-4 mr-2" />
-                                Apply Now
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </aside>
-        </div>
-    );
 }
 
 // Application form modal
@@ -160,7 +20,7 @@ function ApplicationModal({
     onClose,
     onSuccess,
 }: {
-    job: JobDescription;
+    job: Job;
     user: { email: string; userData: StudentUserData };
     onClose: () => void;
     onSuccess: (jobId: string) => void;
@@ -201,7 +61,7 @@ function ApplicationModal({
 
         try {
             const data = new FormData();
-            data.append('job_description_id', job.id);
+            data.append('job_id', job.id);
             data.append('student_name', formData.student_name);
             data.append('student_email', formData.student_email);
             data.append('university', formData.university);
@@ -229,7 +89,7 @@ function ApplicationModal({
             >
                 <div className="p-6 border-b flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold">Apply to {job.job_title}</h2>
+                        <h2 className="text-lg font-semibold">Apply to {job.title}</h2>
                         <p className="text-sm text-gray-500">Fill in your details to apply</p>
                     </div>
                     <button onClick={onClose} className="p-2 rounded hover:bg-gray-100">
@@ -341,33 +201,26 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
     const { savedJobs, toggleSave } = useSavedJobs();
     const { user } = useUser<'student'>();
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-    const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
-    const [selectedEmployerJob, setSelectedEmployerJob] = useState<JobDescription | null>(null);
-    const [applyingJob, setApplyingJob] = useState<JobDescription | null>(null);
+    const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+    const [applyingJob, setApplyingJob] = useState<Job | null>(null);
     const pageSize = 10;
     const [page, setPage] = useState(1);
 
-    // Employer-created jobs
-    const [employerJobs, setEmployerJobs] = useState<JobDescription[]>([]);
     const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        fastAxiosInstance.get('/api/published-jobs', { params: { page: 1, page_size: 50 } })
-            .then(res => setEmployerJobs(res.data.job_descriptions))
-            .catch(err => console.error('Failed to fetch employer jobs', err));
-
         fastAxiosInstance.get('/api/applications/mine', { params: { page: 1, page_size: 100 } })
             .then(res => {
-                const ids = new Set<string>(res.data.applications.map((a: { job_description_id: string }) => a.job_description_id));
+                const ids = new Set<string>(res.data.applications.map((a: { job_id: string }) => a.job_id));
                 setAppliedJobIds(ids);
             })
             .catch(() => {});
     }, []);
 
     const handleApplyClick = (jobId: string) => {
-        const job = employerJobs.find(j => j.id === jobId);
+        const job = jobs.find(j => j.id === jobId);
         if (job) {
-            setSelectedEmployerJob(null); // close detail sidebar
+            setSelectedJob(null); // close detail sidebar
             setApplyingJob(job);
         }
     };
@@ -442,42 +295,33 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
         );
     };
 
-    // Filter admin-uploaded jobs
-    const filteredAdminJobs = jobs.filter(job => {
-        if (filters.types.length > 0 && !filters.types.map(t => t.toLowerCase()).includes(job.job_type.toLowerCase())) return false;
-        const jobLocation = `${job.city}, ${job.province}`.toLowerCase();
-        if (filters.location && !jobLocation.includes(filters.location.toLowerCase())) return false;
-        if (filters.mode.length > 0 && !filters.mode.includes(job.mode)) return false;
+    // Single unified filter for all jobs
+    const filteredJobs = jobs.filter(job => {
+        if (filters.types.length > 0) {
+            const jobType = (job.employment_type || '').toLowerCase();
+            if (!filters.types.map(t => t.toLowerCase()).includes(jobType)) return false;
+        }
+        if (filters.location) {
+            const jobLocation = `${job.city || ''}, ${job.province || ''}`.toLowerCase();
+            if (!jobLocation.includes(filters.location.toLowerCase())) return false;
+        }
+        if (filters.mode.length > 0) {
+            if (!job.mode || !filters.mode.includes(job.mode as 'Remote' | 'On Site' | 'Hybrid')) return false;
+        }
         if (filters.paymentTypes.length > 0) {
             const jobPaymentType = job.with_pay ? 'paid' : 'unpaid';
             if (!filters.paymentTypes.includes(jobPaymentType)) return false;
         }
         if (filters.keywords) {
             const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
-            const jobText = `${job.title} ${job.employer} ${job.requirements || ''} ${job.responsibilities || ''} ${job.skills?.join(' ')}`.toLowerCase();
+            const skillNames = job.skills?.map((s: JobSkill) => s.skill_name).join(' ') || '';
+            const jobText = `${job.title} ${job.employer || ''} ${job.qualifications || ''} ${job.responsibilities || ''} ${skillNames}`.toLowerCase();
             if (!keywords.some(keyword => jobText.includes(keyword))) return false;
         }
         return true;
     });
 
-    // Filter employer-created jobs (apply keyword and location filters)
-    const filteredEmployerJobs = employerJobs.filter(job => {
-        if (filters.location) {
-            const loc = `${job.location_city || ''}, ${job.location_province || ''}`.toLowerCase();
-            if (!loc.includes(filters.location.toLowerCase())) return false;
-        }
-        if (filters.mode.length > 0) {
-            if (!job.location_type || !filters.mode.includes(job.location_type as 'Remote' | 'On Site' | 'Hybrid')) return false;
-        }
-        if (filters.keywords) {
-            const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
-            const jobText = `${job.job_title} ${job.industry || ''} ${job.job_description || ''} ${job.skills?.map(s => s.skill_name).join(' ') || ''}`.toLowerCase();
-            if (!keywords.some(keyword => jobText.includes(keyword))) return false;
-        }
-        return true;
-    });
-
-    const totalJobs = filteredAdminJobs.length + filteredEmployerJobs.length;
+    const totalJobs = filteredJobs.length;
     const totalPages = Math.ceil(total / pageSize);
 
     return (
@@ -662,7 +506,7 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                     </Card>
                 </aside>
 
-                {/* Job Listings - Merged */}
+                {/* Job Listings - Unified */}
                 <main className="lg:col-span-3 space-y-6">
                     <div className="flex items-center justify-between">
                         <h2 className="text-2xl">
@@ -671,66 +515,14 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                     </div>
 
                     <div className="space-y-4">
-                        {/* Employer Jobs */}
-                        {filteredEmployerJobs.map(job => (
-                            <Card
-                                key={`emp-${job.id}`}
-                                className="p-6 hover:shadow-md transition-shadow cursor-pointer"
-                                onClick={() => setSelectedEmployerJob(job)}
-                            >
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 space-y-2">
-                                        <h3 className="text-lg font-medium">{job.job_title}</h3>
-                                        <div className="flex items-center gap-3 text-sm text-gray-500">
-                                            {job.employment_type && <Badge>{job.employment_type}</Badge>}
-                                            {job.location_type && <Badge variant="secondary">{job.location_type}</Badge>}
-                                            {(job.location_city || job.location_province) && (
-                                                <span className="flex items-center gap-1">
-                                                    <MapPin className="w-3 h-3" />
-                                                    {[job.location_city, job.location_province].filter(Boolean).join(', ')}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {job.job_description && (
-                                            <p className="text-sm text-gray-600 line-clamp-2">{job.job_description}</p>
-                                        )}
-                                        {job.compensation_min != null && job.compensation_max != null && (
-                                            <p className="text-sm text-gray-500">
-                                                ${job.compensation_min.toLocaleString()} - ${job.compensation_max.toLocaleString()} {job.compensation_currency}
-                                            </p>
-                                        )}
-                                        {job.application_deadline && (
-                                            <p className="text-xs text-gray-400">
-                                                Deadline: {new Date(job.application_deadline).toLocaleDateString()}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div onClick={(e) => e.stopPropagation()}>
-                                        {appliedJobIds.has(job.id) ? (
-                                            <Button variant="outline" size="sm" disabled>
-                                                Applied
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleApplyClick(job.id)}
-                                            >
-                                                <Send className="w-4 h-4 mr-1" />
-                                                Apply
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-                            </Card>
-                        ))}
-
-                        {/* Admin-uploaded Jobs */}
-                        {filteredAdminJobs.map(job => (
-                            <div key={`admin-${job.id}`} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
+                        {filteredJobs.map(job => (
+                            <div key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
                                 <JobCard
                                     job={job}
                                     isSaved={savedJobs.has(job.id.toString())}
                                     onToggleSave={toggleSave}
+                                    onApply={job.uploaded_by === 'employer' ? handleApplyClick : undefined}
+                                    applied={appliedJobIds.has(job.id)}
                                 />
                             </div>
                         ))}
@@ -746,16 +538,24 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                 </main>
             </div>
 
-            {/* Admin job detail sidebar */}
+            {/* Unified job detail sidebar */}
             <JobDetailsSidebar job={selectedJob} onClose={() => setSelectedJob(null)} />
 
-            {/* Employer job detail sidebar */}
-            <EmployerJobDetailSidebar
-                job={selectedEmployerJob}
-                onClose={() => setSelectedEmployerJob(null)}
-                onApply={handleApplyClick}
-                applied={selectedEmployerJob ? appliedJobIds.has(selectedEmployerJob.id) : false}
-            />
+            {/* Apply button overlay for employer jobs shown in sidebar */}
+            {selectedJob && selectedJob.uploaded_by === 'employer' && (
+                <div className="fixed bottom-0 right-0 w-full max-w-md z-50 bg-white border-t p-4 shadow-lg">
+                    {appliedJobIds.has(selectedJob.id) ? (
+                        <Button variant="outline" className="w-full" disabled>
+                            Already Applied
+                        </Button>
+                    ) : (
+                        <Button className="w-full" onClick={() => handleApplyClick(selectedJob.id)}>
+                            <Send className="w-4 h-4 mr-2" />
+                            Apply Now
+                        </Button>
+                    )}
+                </div>
+            )}
 
             {/* Application form modal */}
             {applyingJob && user && (

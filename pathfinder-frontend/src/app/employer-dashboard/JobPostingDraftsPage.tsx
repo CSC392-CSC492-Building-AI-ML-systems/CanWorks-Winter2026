@@ -6,10 +6,10 @@ import { FileEdit } from 'lucide-react';
 import { jobDescriptionApi } from './api';
 import { JobDescriptionCard } from './JobDescriptionCard';
 import { JobDescriptionWizard } from './JobDescriptionWizard';
-import type { JobDescription } from '@/types';
+import type { Job } from '@/types';
 
 export function JobPostingDraftsPage() {
-    const [jobs, setJobs] = useState<JobDescription[]>([]);
+    const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
@@ -17,7 +17,7 @@ export function JobPostingDraftsPage() {
         setLoading(true);
         try {
             const response = await jobDescriptionApi.list({ status: 'draft' });
-            setJobs(response.data.job_descriptions);
+            setJobs(response.data.jobs);
         } catch (error) {
             console.error('Failed to fetch drafts', error);
         } finally {

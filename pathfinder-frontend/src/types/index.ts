@@ -73,27 +73,39 @@ export type UserMap = {
     'super-admin': SuperAdminUser;
 };
 
-export interface JobPosting {
+export interface Job {
     id: string;
+    uploaded_by: 'admin' | 'employer';
+    employer_id: string | null;
     title: string;
-    employer: string;
+    employer: string | null;
+    description: string | null;
+    responsibilities: string | null;
     province: string | null;
     city: string | null;
-    posting_date: string | null;
+    mode: string | null;
+    compensation_min: number | null;
+    compensation_max: number | null;
+    compensation_currency: string;
     application_deadline: string | null;
-    link_to_posting: string | null;
-    mode: 'Remote' | 'On Site' | 'Hybrid';
-    job_type: 'intern' | 'coop' | 'new-grad' | 'part time' | 'full time';
-    target_audience: 'Student' | 'New Graduate';
-    description: string | null;
-    skills: string[];
-    applySite: string;
-    responsibilities?: string;
-    requirements?: string;
-    duration_months: number;
+    employment_type: string | null;
+    qualifications: string | null;
     with_pay: boolean;
-    term: 'summer' | 'fall' | 'spring' | 'winter';
-    coopCredits?: string;
+    start_month: string | null;
+    duration_months: number | null;
+    target_audience: string | null;
+    other_academic_requirements: string | null;
+    link_to_posting: string | null;
+    template_id: string | null;
+    industry: string | null;
+    job_function: string | null;
+    seniority_level: string | null;
+    skills: JobSkill[];
+    status: 'draft' | 'published' | 'inactive';
+    published_at: string | null;
+    deleted_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
 }
 
 export interface SavedSearch {
@@ -135,36 +147,10 @@ export interface EmployerPermissions {
     memberSince: Date;
 }
 
-export interface JobDescriptionSkill {
+export interface JobSkill {
     skill_id: string;
     skill_name: string;
     skill_type: 'required' | 'preferred';
-}
-
-export interface JobDescription {
-    id: string;
-    user_id: string;
-    template_id: string | null;
-    job_title: string;
-    industry: string | null;
-    job_function: string | null;
-    seniority_level: string | null;
-    employment_type: string | null;
-    location_type: 'Remote' | 'Hybrid' | 'Onsite' | null;
-    location_city: string | null;
-    location_province: string | null;
-    job_description: string | null;
-    responsibilities: string[] | null;
-    qualifications: string | null;
-    compensation_min: number | null;
-    compensation_max: number | null;
-    compensation_currency: string;
-    application_deadline: string | null;
-    status: 'draft' | 'published';
-    skills: JobDescriptionSkill[];
-    created_at: string | null;
-    updated_at: string | null;
-    published_at: string | null;
 }
 
 export interface Template {
@@ -195,7 +181,7 @@ export type ApplicationStatus = 'pending' | 'reviewing' | 'interview' | 'offer' 
 export interface ApplicationItem {
     id: string;
     student_user_id: string;
-    job_description_id: string;
+    job_id: string;
     status: ApplicationStatus;
     student_name: string | null;
     student_email: string | null;
