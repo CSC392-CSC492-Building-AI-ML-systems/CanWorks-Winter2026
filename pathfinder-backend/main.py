@@ -444,11 +444,17 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
 
     emb_list = []
     for s in saved:
-        if s.job and getattr(s.job, 'embedding', None):
-            emb_list.append(np.array(s.job.embedding))
+        try:
+            if s.job and getattr(s.job, 'embedding', None):
+                emb_list.append(np.array(s.job.embedding))
+        except Exception:
+            pass
     for e in view_events:
-        if e.job and getattr(e.job, 'embedding', None):
-            emb_list.append(np.array(e.job.embedding))
+        try:
+            if e.job and getattr(e.job, 'embedding', None):
+                emb_list.append(np.array(e.job.embedding))
+        except Exception:
+            pass
 
     if len(emb_list) == 0:
         # fallback: return most recent published jobs
