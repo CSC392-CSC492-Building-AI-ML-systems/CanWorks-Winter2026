@@ -5,6 +5,7 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
 import { BarChart3, Briefcase, Building } from 'lucide-react';
+import { Header } from '@/app/components/header';
 import AdminReports from '@/app/admin-dashboard/reports';
 import AdminJobManagement from '@/app/admin-dashboard/jobManagement';
 import StartupContactsManager from '@/app/admin-dashboard/StartupContactsManager';
@@ -15,10 +16,8 @@ export default function AdminDashboardPage() {
         <CheckUser requireUser={true}>
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="max-w-7xl mx-auto px-4">
-                    <div className="mb-8">
-                    <h1 className="text-3xl mb-2 font-bold tracking-tight">Admin Dashboard</h1>
-                    <p className="text-gray-600">Overview of platform performance and job data management.</p>
-                    </div>
+                    <Header title="Admin Dashboard" />
+                    <p className="text-gray-600 mb-6">Overview of platform performance and job data management.</p>
 
                     <Tabs defaultValue="reports" className="space-y-6">
                     {/* Updated TabsList to be cleaner without grid constraints */}
