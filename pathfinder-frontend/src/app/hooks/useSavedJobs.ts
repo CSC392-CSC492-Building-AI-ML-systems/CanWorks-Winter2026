@@ -139,6 +139,14 @@ export function useSavedJobs() {
         // UI update
         setSavedJobs(prev => new Set(prev).add(jobId));
       }
+        // notify listeners that saved jobs changed (trigger recommendation refresh)
+        try {
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('recommendations:refresh'));
+          }
+        } catch (e) {
+          console.debug('Failed to dispatch recommendations refresh event', e);
+        }
 
     } catch (err) {
       console.error('Toggle save error:', err);

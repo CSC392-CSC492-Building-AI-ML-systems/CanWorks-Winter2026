@@ -58,6 +58,17 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
         fetchJobs();
     }, []);
 
+      // When HomePage mounts (user visits Home tab), trigger a recommendations refresh
+      useEffect(() => {
+        try {
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('recommendations:refresh'));
+          }
+        } catch (e) {
+          console.debug('Failed to dispatch recommendations refresh on HomePage mount', e);
+        }
+      }, []);
+
     if (loading || loadingJobs) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -79,7 +90,9 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
     //     });
     // };
 
-    const recommendedJobs = propRecommended && propRecommended.length > 0 ? propRecommended : fetchedJobs.slice(0, 4);
+    // Use backend recommendations when provided (even if empty) to avoid
+    // client-side fallback that may show mismatched employment types.
+    const recommendedJobs = typeof propRecommended !== 'undefined' ? propRecommended : fetchedJobs.slice(0, 4);
     const wildcardJobs = fetchedJobs.slice(4);
 
     const carouselSettings = {

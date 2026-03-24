@@ -242,6 +242,17 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
         localStorage.setItem('savedJobs', JSON.stringify(Array.from(savedJobs)));
     }, [savedJobs]);
 
+    // Notify recommendations to refresh when user visits ExplorePage
+    useEffect(() => {
+        try {
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('recommendations:refresh'));
+            }
+        } catch (e) {
+            console.debug('Failed to dispatch recommendations refresh event on ExplorePage mount', e);
+        }
+    }, []);
+
     useEffect(() => {
         localStorage.setItem('savedSearches', JSON.stringify(savedSearches));
     }, [savedSearches]);

@@ -23,12 +23,28 @@ export default function StudentDashboardContent() {
     const [total, setTotal] = useState<number>(0);
     const [recommended, setRecommended] = useState<Job[]>([]);
 
+
     useEffect(() => {
         fetchJobs();
         fetchRecommendations();
         // Track authenticated visit for returning visitor analytics
         fastAxiosInstance.post('/api/track-visit').catch(() => {});
+        const onRecsRefresh = () => {
+            fetchRecommendations();
+        };
+
+        if (typeof window !== 'undefined' && window.addEventListener) {
+            window.addEventListener('recommendations:refresh', onRecsRefresh as EventListener);
+        }
+
+        return () => {
+            if (typeof window !== 'undefined' && window.removeEventListener) {
+                window.removeEventListener('recommendations:refresh', onRecsRefresh as EventListener);
+            }
+        };
     }, []);
+
+    
 
     const fetchJobs = () => {
         let url = `/api/jobs?page=${1}&page_size=${10}`;

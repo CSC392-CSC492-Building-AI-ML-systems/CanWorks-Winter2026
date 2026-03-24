@@ -24,6 +24,14 @@ export default function JobDetailsSidebar({ job, onClose }: Props) {
         (async () => {
             try {
                 await fastAxiosInstance.post('/api/job-events', { job_id: job.id, event_type: 'view' });
+                // notify listeners to refresh recommendations after recording a view
+                try {
+                    if (typeof window !== 'undefined' && window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('recommendations:refresh'));
+                    }
+                } catch (e) {
+                    console.debug('Failed to dispatch recommendations refresh event', e);
+                }
             } catch (err) {
                 // non-fatal; log for debugging
                 console.error('Failed to log job view event', err);

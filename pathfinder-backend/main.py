@@ -8,7 +8,7 @@ from fastapi import Depends
 from fastapi import Query # Define query parameters with defaults and validation
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
+from sqlalchemy import or_, func # SQLAlchemy helpers
 from database import engine, get_db, Base
 from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent
 from schemas import JobResponse, JobListResponse, UploadResponse
@@ -29,7 +29,7 @@ from routes.startup_contacts import router as startup_contacts_router, public_ro
 from routes.student_resume import router as student_resume_router
 from routes.outreach import router as outreach_router
 from routes.gmail_auth import router as gmail_auth_router
-from upload_images import upload_career_images
+from upload_images import upload_career_images, _get_supabase
 
 from jwt_auth import verify_jwt
 
@@ -271,6 +271,21 @@ def save_job(
 
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    # Ensure the job has an embedding so saved jobs contribute to recommendations.
+    try:
+        if not getattr(job, 'embedding', None):
+            text_blob = ' '.join(filter(None, [str(getattr(job, 'title', '')), str(getattr(job, 'employer', '')), str(getattr(job, 'description', ''))]))
+            emb = embed_text(text_blob)
+            if emb is not None:
+                job.embedding = emb
+                db.add(job)
+                # commit the embedding update before creating the SavedJob row
+                db.commit()
+                # refresh the job instance
+                db.refresh(job)
+                logger.info(f"Computed embedding for job {job.id} on save")
+    except Exception as e:
+        logger.error(f"Failed to compute embedding for job {getattr(job, 'id', None)} on save: {e}")
 
     existing = db.query(SavedJob).filter(
         SavedJob.user_id == user_id,
@@ -438,34 +453,357 @@ def log_job_event(payload: JobEventCreate, user=Depends(verify_jwt), db: Session
 def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Depends(get_db)):
     user_id = user["sub"]
 
-    # collect embeddings from saved jobs and recent views
+    # collect embeddings from saved jobs and recent views (weighted)
     saved = db.query(SavedJob).filter(SavedJob.user_id == user_id).all()
     view_events = db.query(JobEvent).filter(JobEvent.user_id == user_id, JobEvent.event_type == 'view').order_by(JobEvent.created_at.desc()).limit(20).all()
 
-    emb_list = []
+    emb_vectors = []
+    emb_weights = []
+    seen_job_ids = set()
+    # weights (tunable)
+    weight_saved = float(os.getenv('RECS_WEIGHT_SAVED', 1.0))
+    weight_view = float(os.getenv('RECS_WEIGHT_VIEW', 0.2))
+    weight_tag = float(os.getenv('RECS_WEIGHT_TAG', 0.5))
+
     for s in saved:
         try:
-            if s.job and getattr(s.job, 'embedding', None):
-                emb_list.append(np.array(s.job.embedding))
+            job = s.job
+            if job and getattr(job, 'embedding', None) and job.id not in seen_job_ids:
+                emb_vectors.append(np.array(job.embedding))
+                emb_weights.append(weight_saved)
+                seen_job_ids.add(job.id)
         except Exception:
             pass
+
     for e in view_events:
         try:
-            if e.job and getattr(e.job, 'embedding', None):
-                emb_list.append(np.array(e.job.embedding))
+            job = e.job
+            if job and getattr(job, 'embedding', None) and job.id not in seen_job_ids:
+                emb_vectors.append(np.array(job.embedding))
+                emb_weights.append(weight_view)
+                seen_job_ids.add(job.id)
         except Exception:
             pass
 
-    if len(emb_list) == 0:
+    logger.info(f"User {user_id} - collected embeddings: saved={len([w for w in emb_weights if w==weight_saved])}, views={len([w for w in emb_weights if w==weight_view])}, total_vectors={len(emb_vectors)}")
+
+    # Try to fetch user profile from Supabase auth metadata to get declared preferences (lookingFor, skills)
+    looking_for = []
+    user_skills = []
+    try:
+        client = _get_supabase()
+        profile = None
+
+        # Prefer fetching the specific user via admin.get_user(user_id) when available
+        try:
+            if hasattr(client.auth.admin, 'get_user'):
+                resp = client.auth.admin.get_user(user_id)
+                maybe = None
+                if hasattr(resp, 'data'):
+                    maybe = resp.data
+                elif isinstance(resp, dict):
+                    # some clients return {'data': { 'user': {...}}} or {'data': {...}}
+                    maybe = resp.get('data') or resp.get('user') or resp
+                if maybe:
+                    # normalize to a user profile dict/object
+                    if isinstance(maybe, dict) and maybe.get('user'):
+                        profile = maybe.get('user')
+                    else:
+                        profile = maybe
+        except Exception:
+            profile = None
+
+        # Fallback to list_users and find the matching profile
+        if not profile:
+            try:
+                users_resp = client.auth.admin.list_users()
+                users = None
+                if hasattr(users_resp, 'data'):
+                    users = users_resp.data
+                elif isinstance(users_resp, dict):
+                    users = users_resp.get('data')
+
+                if users and isinstance(users, list):
+                    for u in users:
+                        uid = getattr(u, 'id', None) or (u.get('id') if isinstance(u, dict) else None)
+                        if uid == user_id:
+                            profile = u
+                            break
+            except Exception:
+                profile = None
+
+        # If we found a profile, attempt to extract userData from likely locations
+        if profile:
+            ud = None
+            found_field = None
+            try:
+                # Try attribute-style user_metadata
+                if hasattr(profile, 'user_metadata') and getattr(profile, 'user_metadata'):
+                    meta = getattr(profile, 'user_metadata')
+                    if isinstance(meta, dict) and meta.get('userData'):
+                        ud = meta.get('userData')
+                        found_field = 'user_metadata.userData'
+                    elif isinstance(meta, dict) and meta.get('user_data'):
+                        ud = meta.get('user_data')
+                        found_field = 'user_metadata.user_data'
+
+                # dict-style keys
+                if not ud and isinstance(profile, dict):
+                    for key in ('user_metadata', 'raw_user_meta_data', 'raw_user_meta', 'raw_user_metadata'):
+                        meta = profile.get(key)
+                        if meta:
+                            # If meta is a JSON string, try to parse
+                            if isinstance(meta, str):
+                                try:
+                                    import json
+                                    meta = json.loads(meta)
+                                except Exception:
+                                    pass
+                            if isinstance(meta, dict) and meta.get('userData'):
+                                ud = meta.get('userData')
+                                found_field = f"{key}.userData"
+                                break
+                            if isinstance(meta, dict) and meta.get('user_data'):
+                                ud = meta.get('user_data')
+                                found_field = f"{key}.user_data"
+                                break
+                    # direct top-level userData
+                    if not ud and profile.get('userData'):
+                        ud = profile.get('userData')
+                        found_field = 'top.userData'
+
+                # If still not found, consider the profile itself may be the stored data
+                if not ud and isinstance(profile, dict):
+                    # profile might contain a 'data' wrapper
+                    if profile.get('data') and isinstance(profile.get('data'), dict):
+                        pdata = profile.get('data')
+                        if pdata.get('userData'):
+                            ud = pdata.get('userData')
+                            found_field = 'data.userData'
+            except Exception:
+                ud = None
+
+            # Normalize if ud is a JSON string
+            if isinstance(ud, str):
+                try:
+                    import json
+                    ud = json.loads(ud)
+                except Exception:
+                    ud = None
+
+            if ud and isinstance(ud, dict):
+                looking_for = ud.get('lookingFor') or ud.get('looking_for') or ud.get('looking_for_tags') or []
+                user_skills = ud.get('skills') or ud.get('skill_tags') or ud.get('tags') or []
+                if isinstance(looking_for, str):
+                    looking_for = [looking_for]
+                if isinstance(user_skills, str):
+                    try:
+                        import json
+                        user_skills = json.loads(user_skills)
+                    except Exception:
+                        user_skills = [user_skills]
+                logger.info(f"User {user_id} - extracted userData from {found_field}")
+            else:
+                logger.info(f"User {user_id} - userData not found in Supabase profile; profile keys: {list(profile.keys()) if isinstance(profile, dict) else 'attr'}")
+    except Exception:
+        # supabase unavailable or no profile — continue without explicit tags
+        looking_for = []
+        user_skills = []
+
+
+    # If we have tag info, incorporate tag embeddings into the user embedding list (with its own weight)
+    try:
+        tag_text_parts = []
+        if looking_for:
+            tag_text_parts.extend([str(t) for t in looking_for])
+        if user_skills:
+            tag_text_parts.extend([str(s) for s in user_skills])
+        if tag_text_parts:
+            tag_blob = " ".join(tag_text_parts)
+            tag_emb = embed_text(tag_blob)
+            if tag_emb is not None:
+                emb_vectors.append(np.array(tag_emb))
+                emb_weights.append(weight_tag)
+    except Exception:
+        pass
+
+    logger.info(f"User {user_id} - looking_for={looking_for} user_skills={user_skills} emb_vectors={len(emb_vectors)} emb_weights_sum={sum(emb_weights) if emb_weights else 0}")
+
+    # Normalize user skills early for fallback filtering
+    user_skill_norm = [s.lower().strip() for s in user_skills if s]
+
+    # Build employment_type filter based on user's looking_for preferences (compute early for fallback)
+    allowed_types = None
+    try:
+        # Expand user selections into allowed employment_type values.
+        # Rules:
+        # - 'new-grad' should match 'new-grad', 'full-time', 'part-time'
+        # - 'coop' matches 'coop'
+        # - 'internship' / 'intern' matches 'intern'
+        if looking_for:
+            allowed = set()
+            for lf in looking_for:
+                if not lf:
+                    continue
+                key = lf.lower().strip()
+                if key in ('new-grad', 'newgrad', 'entry', 'new grad'):
+                    allowed.update(['new-grad', 'Full-time', 'part-time', 'full-time'])
+                elif key == 'coop':
+                    allowed.add('coop')
+                elif key in ('internship', 'intern', "Internship"):
+                    allowed.add('intern')
+                else:
+                    # default: include the raw normalized token
+                    allowed.add(key)
+            allowed_types = list(allowed) if allowed else None
+    except Exception:
+        allowed_types = None
+
+    if len(emb_vectors) == 0 or sum(emb_weights) == 0:
         # fallback: return most recent published jobs
-        query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).order_by(Job.created_at.desc()).limit(k).all()
-        total = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).count()
-        return JobListResponse(jobs=query, total=total, page=1, page_size=k)
+        logger.info(f"User {user_id} - no embeddings available, using fallback recent jobs with final filtering allowed_types={allowed_types} user_skills={user_skills}")
+        candidate_query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).order_by(Job.created_at.desc())
+        if allowed_types:
+            allowed_norm = [t.lower().strip() for t in allowed_types if t]
+            # Support two possible fields used by different upload paths: `employment_type` (employer-created)
+            # and `job_type` (admin spreadsheet uploads / legacy). If `job_type` exists on the model,
+            # include it in the filter so both kinds of jobs are matched.
+            try:
+                if hasattr(Job, 'job_type'):
+                    candidate_query = candidate_query.filter(
+                        or_(
+                            func.lower(func.coalesce(Job.employment_type, '')) .in_(allowed_norm),
+                            func.lower(func.coalesce(Job.job_type, '')) .in_(allowed_norm),
+                        )
+                    )
+                else:
+                    candidate_query = candidate_query.filter(func.lower(func.coalesce(Job.employment_type, '')) .in_(allowed_norm))
+            except Exception:
+                candidate_query = candidate_query.filter(func.lower(func.coalesce(Job.employment_type, '')) .in_(allowed_norm))
 
-    user_emb = np.mean(np.stack(emb_list, axis=0), axis=0)
+        recent_candidates = candidate_query.limit(200).all()
 
-    # fetch candidate jobs with embeddings
-    candidates = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).all()
+        # If user has skills, require at least one match
+        filtered = []
+        for job in recent_candidates:
+            if user_skill_norm:
+                matched = False
+                try:
+                    for js in getattr(job, 'skills', []) or []:
+                        skill_obj = getattr(js, 'skill', None)
+                        if skill_obj and getattr(skill_obj, 'skill_name', None):
+                            if skill_obj.skill_name.lower().strip() in user_skill_norm:
+                                matched = True
+                                break
+                    if not matched:
+                        title = (job.title or '').lower()
+                        desc = (job.description or '').lower()
+                        for s in user_skill_norm:
+                            if s in title or s in desc:
+                                matched = True
+                                break
+                except Exception:
+                    matched = False
+                if not matched:
+                    continue
+
+            filtered.append(job)
+            if len(filtered) >= k:
+                break
+
+        total = len(filtered)
+        return JobListResponse(jobs=filtered, total=total, page=1, page_size=k)
+
+    # compute weighted average embedding
+    try:
+        mat = np.stack(emb_vectors, axis=0)
+        w = np.array(emb_weights, dtype=float)
+        user_emb = np.average(mat, axis=0, weights=w)
+    except Exception:
+        user_emb = np.mean(np.stack(emb_vectors, axis=0), axis=0)
+
+    # Build employment_type filter based on user's looking_for preferences
+    allowed_types = None
+    try:
+        # Expand user selections into allowed employment_type values (same logic as above)
+        if looking_for:
+            allowed = set()
+            for lf in looking_for:
+                if not lf:
+                    continue
+                key = lf.lower().strip()
+                if key in ('new-grad', 'newgrad', 'entry', 'new grad'):
+                    allowed.update(['new-grad', 'full-time', 'part-time'])
+                elif key == 'coop':
+                    allowed.add('coop')
+                elif key in ('internship', 'intern'):
+                    allowed.add('intern')
+                else:
+                    allowed.add(key)
+            allowed_types = list(allowed) if allowed else None
+    except Exception:
+        allowed_types = None
+
+    # fetch candidate jobs with embeddings, applying strict employment_type filter when available
+    candidate_query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None))
+    if allowed_types:
+        # normalize allowed types to lowercase canonical tokens
+        allowed_norm = [t.lower().strip() for t in allowed_types if t]
+        # enforce employment_type/job_type lowercased equals one of allowed_norm
+        try:
+            if hasattr(Job, 'job_type'):
+                candidate_query = candidate_query.filter(
+                    or_(
+                        func.lower(func.coalesce(Job.employment_type, '')) .in_(allowed_norm),
+                        func.lower(func.coalesce(Job.job_type, '')) .in_(allowed_norm),
+                    )
+                )
+            else:
+                candidate_query = candidate_query.filter(func.lower(func.coalesce(Job.employment_type, '')) .in_(allowed_norm))
+        except Exception:
+            candidate_query = candidate_query.filter(func.lower(func.coalesce(Job.employment_type, '')) .in_(allowed_norm))
+
+    logger.info(f"User {user_id} - applying employment_type filter allowed_types={allowed_types}")
+    candidates = candidate_query.all()
+    logger.info(f"User {user_id} - candidate_count_after_type_filter={len(candidates)}")
+
+    # If user provided skill tags, filter candidates to only those that match at least one tag
+    candidates_filtered = []
+    user_skill_norm = [s.lower().strip() for s in user_skills if s]
+    for job in candidates:
+        # skip jobs without embeddings
+        if not getattr(job, 'embedding', None):
+            continue
+
+        # If user has declared skills, require at least one match
+        if user_skill_norm:
+            matched = False
+            try:
+                # check structured JobSkill -> Skill names
+                for js in getattr(job, 'skills', []) or []:
+                    skill_obj = getattr(js, 'skill', None)
+                    if skill_obj and getattr(skill_obj, 'skill_name', None):
+                        if skill_obj.skill_name.lower().strip() in user_skill_norm:
+                            matched = True
+                            break
+                # fallback: check title/description substring match
+                if not matched:
+                    title = (job.title or '').lower()
+                    desc = (job.description or '').lower()
+                    for s in user_skill_norm:
+                        if s in title or s in desc:
+                            matched = True
+                            break
+            except Exception:
+                matched = False
+
+            if not matched:
+                continue
+
+        # passed tag filtering (or no user tags provided)
+        candidates_filtered.append(job)
+
+    candidates = candidates_filtered
     scored = []
     for job in candidates:
         if not getattr(job, 'embedding', None):
@@ -476,6 +814,21 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
         scored.append((sim, job))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    top = [j for _, j in scored[:k]]
     total = len(scored)
+    top = [j for _, j in scored[:k]]
+
+    # log top candidates for debugging purposes
+    try:
+        top_info = []
+        for sim, job in scored[:k]:
+            top_info.append({
+                'id': str(job.id),
+                'title': (job.title or '')[:60],
+                'employment_type': job.employment_type,
+                'score': float(sim)
+            })
+        logger.info(f"User {user_id} - recommendations k={k} total_scored={total} top={top_info}")
+    except Exception:
+        logger.info(f"User {user_id} - recommendations computed, total_scored={total}")
+
     return JobListResponse(jobs=top, total=total, page=1, page_size=k)
