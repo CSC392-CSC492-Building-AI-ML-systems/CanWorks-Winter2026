@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-// Updated imports to use the single widgets file
-// Updated imports to use the single widgets file
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { Header } from '@/app/components/header'
 import { BarChart3, Briefcase, FileText, Mail } from 'lucide-react';
@@ -19,6 +17,14 @@ import fastAxiosInstance from '@/axiosConfig/axiosfig';
 import type { Job } from '@/types';
 
 export default function StudentDashboardPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-50 py-8 text-center text-gray-500">Loading...</div>}>
+            <StudentDashboardContent />
+        </Suspense>
+    );
+}
+
+function StudentDashboardContent() {
     const searchParams = useSearchParams();
     const defaultTab = useMemo(() => searchParams.get('tab') || 'home', [searchParams]);
     const [jobs, setJobs] = useState<Job[]>([]);
