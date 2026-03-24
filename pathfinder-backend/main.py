@@ -1,6 +1,7 @@
 import os
 import logging
 from uuid import UUID
+from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi import UploadFile, File # handle file uploads
@@ -436,9 +437,40 @@ def log_job_event(payload: JobEventCreate, user=Depends(verify_jwt), db: Session
 # -----------------------------
 @app.get("/api/recommendations", response_model=JobListResponse)
 def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Depends(get_db)):
+    from sqlalchemy import func
+
     user_id = user["sub"]
 
-    # collect embeddings from saved jobs and recent views
+    # Extract profile preferences from JWT
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    looking_for = user_meta.get("lookingFor", [])  # ["internship", "coop", "new-grad"]
+    user_skills = [s.lower() for s in user_meta.get("skills", [])]
+
+    # Map lookingFor to employment_type values (case-insensitive)
+    type_map = {
+        "internship": ["intern", "internship"],
+        "coop": ["coop", "co-op"],
+        "new-grad": ["new-grad", "full-time", "full time"],
+    }
+    preferred_types = set()
+    for pref in looking_for:
+        preferred_types.update(type_map.get(pref, [pref]))
+
+    # Build base query for candidate jobs
+    base_query = db.query(Job).options(
+        joinedload(Job.skills).joinedload(JobSkill.skill)
+    ).filter(Job.status == "published", Job.deleted_at.is_(None))
+
+    # Pre-filter by employment_type if preferences exist
+    if preferred_types:
+        filtered = base_query.filter(
+            func.lower(Job.employment_type).in_(preferred_types)
+        ).all()
+        candidates = filtered if filtered else base_query.all()
+    else:
+        candidates = base_query.all()
+
+    # Collect embeddings from saved jobs and recent views
     saved = db.query(SavedJob).filter(SavedJob.user_id == user_id).all()
     view_events = db.query(JobEvent).filter(JobEvent.user_id == user_id, JobEvent.event_type == 'view').order_by(JobEvent.created_at.desc()).limit(20).all()
 
@@ -457,22 +489,27 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
             pass
 
     if len(emb_list) == 0:
-        # fallback: return most recent published jobs
-        query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).order_by(Job.created_at.desc()).limit(k).all()
-        total = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).count()
-        return JobListResponse(jobs=query, total=total, page=1, page_size=k)
+        # Cold start fallback — return filtered recent jobs based on preferences
+        candidates.sort(key=lambda j: j.created_at or datetime.min, reverse=True)
+        top = candidates[:k]
+        return JobListResponse(jobs=top, total=len(candidates), page=1, page_size=k)
 
     user_emb = np.mean(np.stack(emb_list, axis=0), axis=0)
 
-    # fetch candidate jobs with embeddings
-    candidates = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).all()
+    # Score candidates with cosine similarity + skill overlap boost
     scored = []
     for job in candidates:
         if not getattr(job, 'embedding', None):
             continue
         job_emb = np.array(job.embedding)
-        # cosine similarity
         sim = float(np.dot(user_emb, job_emb) / (np.linalg.norm(user_emb) * np.linalg.norm(job_emb) + 1e-10))
+
+        # Boost score based on skill overlap with student profile
+        if user_skills and job.skills:
+            job_skill_names = [s.skill_name.lower() for s in job.skills if s.skill_name]
+            matches = len(set(user_skills) & set(job_skill_names))
+            sim += 0.1 * matches / max(len(user_skills), 1)
+
         scored.append((sim, job))
 
     scored.sort(key=lambda x: x[0], reverse=True)

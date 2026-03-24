@@ -51,9 +51,9 @@ export function ProfilePage() {
         }
     }, [user]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        updateUser({
+        await updateUser({
             email: formData.email,
             userData: {
                 userType: 'student',
@@ -67,6 +67,8 @@ export function ProfilePage() {
             }
         });
         setIsEditing(false);
+        // Force page refresh so recommendations pick up updated profile
+        window.location.reload();
     };
 
     const toggleLookingFor = (type: 'internship' | 'coop' | 'new-grad', checked: boolean) => {
