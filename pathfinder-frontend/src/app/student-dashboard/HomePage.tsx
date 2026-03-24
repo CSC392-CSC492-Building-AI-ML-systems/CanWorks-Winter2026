@@ -3,9 +3,9 @@ import Slider from 'react-slick';
 import { Card } from '@/app/components/globalComponents';
 import { JobCard } from '@/app/components/JobCard';
 import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
-import { mockJobs } from '@/data/mockData';
 import type { Job } from '@/types';
 import { useSavedJobs } from '@/app/hooks/useSavedJobs';
+import fastAxiosInstance from '@/axiosConfig/axiosfig';
 
 function NextArrow(props: any) {
   const { onClick } = props;
@@ -33,11 +33,35 @@ function PrevArrow(props: any) {
 
 export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined }: { totalJobs: number, recommendedJobs?: Job[] }) {
     const { savedJobDetails, toggleSave, loading } = useSavedJobs();
+    const [fetchedJobs, setFetchedJobs] = useState<Job[]>([]);
+    const [loadingJobs, setLoadingJobs] = useState(true);
 
-    if (loading) {
+    useEffect(() => {
+        const fetchJobs = async () => {
+            try {
+                const response = await fastAxiosInstance.get('/api/jobs');
+                if (response.status === 200) {
+                    const data = response.data;
+                    setFetchedJobs(data.jobs || []);
+                } else {
+                    console.error('Failed to fetch jobs');
+                    setFetchedJobs([]);
+                }
+            } catch (error) {
+                console.error('Error fetching jobs:', error);
+                setFetchedJobs([]);
+            } finally {
+                setLoadingJobs(false);
+            }
+        };
+
+        fetchJobs();
+    }, []);
+
+    if (loading || loadingJobs) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <p className="text-center text-gray-500">Loading saved jobs...</p>
+        <p className="text-center text-gray-500">Loading jobs...</p>
       </div>
     );
   }
@@ -55,8 +79,8 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
     //     });
     // };
 
-    const recommendedJobs = propRecommended && propRecommended.length > 0 ? propRecommended : mockJobs.slice(0, 4);
-    const wildcardJobs = mockJobs.slice(4);
+    const recommendedJobs = propRecommended && propRecommended.length > 0 ? propRecommended : fetchedJobs.slice(0, 4);
+    const wildcardJobs = fetchedJobs.slice(4);
 
     const carouselSettings = {
         dots: true,

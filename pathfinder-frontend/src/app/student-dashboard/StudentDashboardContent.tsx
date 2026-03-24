@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { Header } from '@/app/components/header'
@@ -16,15 +16,7 @@ import { UserProvider, CheckUser } from '@/app/components/authComponents';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
 import type { Job } from '@/types';
 
-export default function StudentDashboardPage() {
-    return (
-        <Suspense fallback={<div className="min-h-screen bg-gray-50 py-8 text-center text-gray-500">Loading...</div>}>
-            <StudentDashboardContent />
-        </Suspense>
-    );
-}
-
-function StudentDashboardContent() {
+export default function StudentDashboardContent() {
     const searchParams = useSearchParams();
     const defaultTab = useMemo(() => searchParams.get('tab') || 'home', [searchParams]);
     const [jobs, setJobs] = useState<Job[]>([]);
@@ -72,6 +64,7 @@ function StudentDashboardContent() {
                         </Header>
 
                         <Tabs defaultValue={defaultTab} className="space-y-6">
+                        {/* Updated TabsList to be cleaner without grid constraints */}
                         <TabsList className="mb-6">
                             <TabsTrigger value="home" className="flex items-center gap-2">
                             <BarChart3 className="w-4 h-4" />
@@ -106,6 +99,7 @@ function StudentDashboardContent() {
                         <TabsContent value="home" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
                             <HomePage totalJobs={total} recommendedJobs={recommended}>
                             </HomePage>
+
                         </TabsContent>
 
                         <TabsContent value="explore" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
