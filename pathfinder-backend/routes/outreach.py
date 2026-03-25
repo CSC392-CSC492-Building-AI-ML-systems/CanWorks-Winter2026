@@ -161,6 +161,14 @@ def approve_draft(
             detail=f"Email flagged by content moderation: {moderation['reason']}"
         )
 
+    # Fetch student's resume for attachment
+    resume = (
+        db.query(StudentResume)
+        .filter(StudentResume.student_user_id == user_id)
+        .order_by(StudentResume.uploaded_at.desc())
+        .first()
+    )
+
     # Send via Gmail
     draft.status = "sending"
     db.commit()
@@ -172,6 +180,8 @@ def approve_draft(
             to_email=draft.startup_contact.email,
             subject=draft.subject,
             body=draft.body,
+            attachment_url=resume.resume_url if resume else None,
+            attachment_filename=resume.resume_filename if resume else None,
         )
         draft.status = "sent"
         draft.sent_at = datetime.now(timezone.utc)
@@ -197,6 +207,14 @@ def approve_all_drafts(
         .all()
     )
 
+    # Fetch student's resume for attachment
+    resume = (
+        db.query(StudentResume)
+        .filter(StudentResume.student_user_id == user_id)
+        .order_by(StudentResume.uploaded_at.desc())
+        .first()
+    )
+
     for draft in drafts:
         # Moderate
         moderation = moderate_email(draft.subject, draft.body)
@@ -215,6 +233,8 @@ def approve_all_drafts(
                 to_email=draft.startup_contact.email,
                 subject=draft.subject,
                 body=draft.body,
+                attachment_url=resume.resume_url if resume else None,
+                attachment_filename=resume.resume_filename if resume else None,
             )
             draft.status = "sent"
             draft.sent_at = datetime.now(timezone.utc)

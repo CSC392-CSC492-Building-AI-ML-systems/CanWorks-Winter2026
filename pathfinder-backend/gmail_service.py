@@ -1,7 +1,10 @@
 import os
 import base64
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 from datetime import datetime, timezone
+import httpx
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -161,15 +164,42 @@ def get_gmail_service(db: Session, student_user_id: str):
     return build("gmail", "v1", credentials=creds)
 
 
-def send_email(db: Session, student_user_id: str, to_email: str, subject: str, body: str) -> bool:
-    """Send email via Gmail API. Returns True on success."""
+def send_email(
+    db: Session,
+    student_user_id: str,
+    to_email: str,
+    subject: str,
+    body: str,
+    attachment_url: str | None = None,
+    attachment_filename: str | None = None,
+) -> bool:
+    """Send email via Gmail API with optional PDF attachment. Returns True on success."""
     service = get_gmail_service(db, student_user_id)
     if not service:
         raise Exception("Gmail not connected. Please connect your Gmail account first.")
 
-    message = MIMEText(body)
-    message["to"] = to_email
-    message["subject"] = subject
+    if attachment_url:
+        # Build multipart message with attachment
+        message = MIMEMultipart()
+        message["to"] = to_email
+        message["subject"] = subject
+        message.attach(MIMEText(body))
+
+        # Download PDF from Supabase
+        try:
+            pdf_response = httpx.get(attachment_url, timeout=30)
+            pdf_response.raise_for_status()
+            filename = attachment_filename or "resume.pdf"
+            attachment = MIMEApplication(pdf_response.content, _subtype="pdf")
+            attachment.add_header("Content-Disposition", "attachment", filename=filename)
+            message.attach(attachment)
+        except Exception:
+            pass  # Send without attachment if download fails
+    else:
+        message = MIMEText(body)
+        message["to"] = to_email
+        message["subject"] = subject
+
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
     service.users().messages().send(
