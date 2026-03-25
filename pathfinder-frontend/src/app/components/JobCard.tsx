@@ -8,7 +8,7 @@ import fastAxiosInstance from '@/axiosConfig/axiosfig';
 interface JobCardProps {
   job: Job;
   isSaved: boolean;
-  onToggleSave: (jobId: string) => void;
+  onToggleSave: (jobId: string, job?: Job) => void;
   onApply?: (jobId: string) => void;
   applied?: boolean;
 }
@@ -71,7 +71,7 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
             <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onToggleSave(job.id.toString())}
+                onClick={(e) => { e.stopPropagation(); onToggleSave(job.id.toString(), job); }}
                 className="shrink-0"
             >
                 {isSaved ? (

@@ -30,13 +30,20 @@ function StudentDashboardContent() {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [total, setTotal] = useState<number>(0);
     const [recommended, setRecommended] = useState<Job[]>([]);
+    const [activeTab, setActiveTab] = useState(defaultTab);
 
     useEffect(() => {
         fetchJobs();
         fetchRecommendations();
-        // Track authenticated visit for returning visitor analytics
         fastAxiosInstance.post('/api/track-visit').catch(() => {});
     }, []);
+
+    // Re-fetch recommendations when switching back to home tab (picks up profile changes)
+    useEffect(() => {
+        if (activeTab === 'home') {
+            fetchRecommendations();
+        }
+    }, [activeTab]);
 
     const fetchJobs = () => {
         let url = `/api/jobs?page=${1}&page_size=${10}`;
@@ -71,7 +78,7 @@ function StudentDashboardContent() {
                         >
                         </Header>
 
-                        <Tabs defaultValue={defaultTab} className="space-y-6">
+                        <Tabs defaultValue={defaultTab} onValueChange={setActiveTab} className="space-y-6">
                         <TabsList className="mb-6">
                             <TabsTrigger value="home" className="flex items-center gap-2">
                             <BarChart3 className="w-4 h-4" />

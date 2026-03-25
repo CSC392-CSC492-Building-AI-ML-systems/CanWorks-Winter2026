@@ -60,7 +60,7 @@ export function useSavedJobs() {
   // -------------------------
   // Toggle Save
   // -------------------------
-  const toggleSave = async (jobId: string) => {
+  const toggleSave = async (jobId: string, job?: Job) => {
     const isSaved = savedJobs.has(jobId);
 
     try {
@@ -76,7 +76,7 @@ export function useSavedJobs() {
         });
 
         setSavedJobDetails(prev =>
-          prev.filter(job => job.id.toString() !== jobId)
+          prev.filter(j => j.id.toString() !== jobId)
         );
 
       } else {
@@ -85,6 +85,9 @@ export function useSavedJobs() {
 
         // UI update
         setSavedJobs(prev => new Set(prev).add(jobId));
+        if (job) {
+          setSavedJobDetails(prev => [...prev, job]);
+        }
       }
 
     } catch (err) {

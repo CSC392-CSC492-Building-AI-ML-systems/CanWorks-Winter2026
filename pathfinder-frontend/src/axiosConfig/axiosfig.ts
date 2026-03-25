@@ -9,9 +9,9 @@ const isLocalhost = typeof window !== 'undefined' &&
    process.env.NODE_ENV === 'development');
 
 // Set base URL based on environment
-const BASE_URL = isLocalhost 
+const BASE_URL = isLocalhost
   ? 'http://127.0.0.1:8000'
-  : 'https://canworks-winter2026-render.onrender.com';
+  : (process.env.NEXT_PUBLIC_API_URL || 'https://canworks-winter2026-render.onrender.com');
 
 // Create axios instance with base configuration
 const fastAxiosInstance = axios.create({

@@ -33,7 +33,7 @@ function PrevArrow(props: any) {
 }
 
 export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined }: { totalJobs: number, recommendedJobs?: Job[] }) {
-    const { savedJobDetails, toggleSave, loading } = useSavedJobs();
+    const { savedJobs, savedJobDetails, toggleSave, loading } = useSavedJobs();
     const [fetchedJobs, setFetchedJobs] = useState<Job[]>([]);
     const [loadingJobs, setLoadingJobs] = useState(true);
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -160,7 +160,7 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
                 <div key={job.id} className="px-2 cursor-pointer" onClick={() => setSelectedJob(job)}>
                     <JobCard
                     job={job}
-                    isSaved={savedJobDetails?.some(j => j.id === job.id) || false}
+                    isSaved={savedJobs.has(job.id.toString())}
                     onToggleSave={toggleSave}
                     />
                 </div>
@@ -181,7 +181,7 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
                 <div key={job.id} className="px-2 cursor-pointer" onClick={() => setSelectedJob(job)}>
                     <JobCard
                     job={job}
-                    isSaved={savedJobDetails?.some(j => j.id === job.id) || false}
+                    isSaved={savedJobs.has(job.id.toString())}
                     onToggleSave={toggleSave}
                     />
                 </div>
