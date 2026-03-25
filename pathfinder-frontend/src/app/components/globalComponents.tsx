@@ -207,8 +207,30 @@ Switch.displayName = "Switch";
 // Context for Active State
 const TabsContext = React.createContext<{ activeTab: string; setActiveTab: (v: string) => void }>({ activeTab: '', setActiveTab: () => {} });
 
-export const Tabs = ({ defaultValue, children, className, ...props }: any) => {
-  const [activeTab, setActiveTab] = React.useState(defaultValue);
+interface TabsProps extends React.HTMLAttributes<HTMLDivElement> {
+  defaultValue?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  children?: React.ReactNode;
+}
+
+export const Tabs = ({ defaultValue, value, onValueChange, children, className, ...props }: TabsProps) => {
+  const [internalValue, setInternalValue] = React.useState(defaultValue ?? '');
+  const activeTab = value ?? internalValue;
+
+  React.useEffect(() => {
+    if (defaultValue !== undefined) {
+      setInternalValue(defaultValue);
+    }
+  }, [defaultValue]);
+
+  const setActiveTab = React.useCallback((nextValue: string) => {
+    if (value === undefined) {
+      setInternalValue(nextValue);
+    }
+    onValueChange?.(nextValue);
+  }, [onValueChange, value]);
+
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>
       <div className={className} {...props}>{children}</div>
