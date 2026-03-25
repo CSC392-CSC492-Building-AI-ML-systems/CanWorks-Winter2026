@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Slider from 'react-slick';
 import { Card } from '@/app/components/globalComponents';
 import { JobCard } from '@/app/components/JobCard';
+import JobDetailsSidebar from '@/app/components/JobDetailsSidebar';
 import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Job } from '@/types';
 import { useSavedJobs } from '@/app/hooks/useSavedJobs';
@@ -35,6 +36,7 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
     const { savedJobDetails, toggleSave, loading } = useSavedJobs();
     const [fetchedJobs, setFetchedJobs] = useState<Job[]>([]);
     const [loadingJobs, setLoadingJobs] = useState(true);
+    const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -137,12 +139,13 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
         ) : (
           <Slider {...carouselSettings}>
             {savedJobDetails.map(job => (
-              <JobCard
-                key={job.id}
-                job={job}
-                isSaved={true}
-                onToggleSave={toggleSave}
-              />
+              <div key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
+                <JobCard
+                  job={job}
+                  isSaved={true}
+                  onToggleSave={toggleSave}
+                />
+              </div>
             ))}
           </Slider>
         )}
@@ -154,7 +157,7 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
             <div className="relative px-12">
             <Slider {...carouselSettings}>
                 {recommendedJobs.map((job) => (
-                <div key={job.id} className="px-2">
+                <div key={job.id} className="px-2 cursor-pointer" onClick={() => setSelectedJob(job)}>
                     <JobCard
                     job={job}
                     isSaved={savedJobDetails?.some(j => j.id === job.id) || false}
@@ -175,7 +178,7 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
             <div className="relative px-12">
             <Slider {...carouselSettings}>
                 {wildcardJobs.map((job) => (
-                <div key={job.id} className="px-2">
+                <div key={job.id} className="px-2 cursor-pointer" onClick={() => setSelectedJob(job)}>
                     <JobCard
                     job={job}
                     isSaved={savedJobDetails?.some(j => j.id === job.id) || false}
@@ -186,6 +189,8 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
             </Slider>
             </div>
         </section>
+
+        <JobDetailsSidebar job={selectedJob} onClose={() => setSelectedJob(null)} />
         </div>
     );
 }
