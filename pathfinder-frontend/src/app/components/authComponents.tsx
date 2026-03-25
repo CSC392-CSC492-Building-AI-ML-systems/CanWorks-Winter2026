@@ -96,10 +96,23 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
 
         const { data: { user: supaUser }, error } = await supabase.auth.updateUser(payload);
         if (!error && supaUser) {
-            const newUser = convertUser(supaUser);
-            if (newUser) {
-                setUser(newUser);
-                return {user: newUser, error: error};
+            // Refresh session to ensure client has updated token/user_metadata
+            try {
+                await supabase.auth.refreshSession();
+                const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+                const finalUser = convertUser(refreshedUser || supaUser);
+                if (finalUser) {
+                    setUser(finalUser);
+                    // notify recommendation components to refresh
+                    try { window.dispatchEvent(new Event('recommendations:refresh')); } catch (e) { /* noop */ }
+                    return {user: finalUser, error: error};
+                }
+            } catch (err) {
+                const newUser = convertUser(supaUser);
+                if (newUser) {
+                    setUser(newUser);
+                    return {user: newUser, error: error};
+                }
             }
         };
         return {user: null, error: error};

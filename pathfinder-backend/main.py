@@ -470,31 +470,52 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
     else:
         candidates = base_query.all()
 
-    # Collect embeddings from saved jobs and recent views
+    # Collect embeddings from saved jobs and recent views and apply weights
     saved = db.query(SavedJob).filter(SavedJob.user_id == user_id).all()
     view_events = db.query(JobEvent).filter(JobEvent.user_id == user_id, JobEvent.event_type == 'view').order_by(JobEvent.created_at.desc()).limit(20).all()
 
-    emb_list = []
+    emb_vectors = []
+    emb_weights = []
+    seen_job_ids = set()
+
+    # weights can be tuned via env vars
+    weight_saved = float(os.getenv('RECS_WEIGHT_SAVED', 1.0))
+    weight_view = float(os.getenv('RECS_WEIGHT_VIEW', 0.2))
+
     for s in saved:
         try:
-            if s.job and getattr(s.job, 'embedding', None):
-                emb_list.append(np.array(s.job.embedding))
-        except Exception:
-            pass
-    for e in view_events:
-        try:
-            if e.job and getattr(e.job, 'embedding', None):
-                emb_list.append(np.array(e.job.embedding))
+            job = s.job
+            if job and getattr(job, 'embedding', None) and job.id not in seen_job_ids:
+                emb_vectors.append(np.array(job.embedding))
+                emb_weights.append(weight_saved)
+                seen_job_ids.add(job.id)
         except Exception:
             pass
 
-    if len(emb_list) == 0:
+    for e in view_events:
+        try:
+            job = e.job
+            if job and getattr(job, 'embedding', None) and job.id not in seen_job_ids:
+                emb_vectors.append(np.array(job.embedding))
+                emb_weights.append(weight_view)
+                seen_job_ids.add(job.id)
+        except Exception:
+            pass
+
+    logger.info(f"User {user_id} - collected embeddings: saved={len([w for w in emb_weights if w==weight_saved])}, views={len([w for w in emb_weights if w==weight_view])}, total_vectors={len(emb_vectors)}")
+
+    if len(emb_vectors) == 0 or sum(emb_weights) == 0:
         # Cold start fallback — return filtered recent jobs based on preferences
         candidates.sort(key=lambda j: j.created_at or datetime.min, reverse=True)
         top = candidates[:k]
         return JobListResponse(jobs=top, total=len(candidates), page=1, page_size=k)
 
-    user_emb = np.mean(np.stack(emb_list, axis=0), axis=0)
+    try:
+        mat = np.stack(emb_vectors, axis=0)
+        w = np.array(emb_weights, dtype=float)
+        user_emb = np.average(mat, axis=0, weights=w)
+    except Exception:
+        user_emb = np.mean(np.stack(emb_vectors, axis=0), axis=0)
 
     # Score candidates with cosine similarity + skill overlap boost
     scored = []
