@@ -96,6 +96,8 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
 
         const { data: { user: supaUser }, error } = await supabase.auth.updateUser(payload);
         if (!error && supaUser) {
+            // Refresh the session so the JWT token picks up updated user_metadata
+            await supabase.auth.refreshSession();
             const newUser = convertUser(supaUser);
             if (newUser) {
                 setUser(newUser);
