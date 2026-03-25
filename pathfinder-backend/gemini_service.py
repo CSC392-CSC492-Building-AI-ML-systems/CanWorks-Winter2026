@@ -104,3 +104,51 @@ FLAGGED: <brief reason>
     else:
         reason = result.replace("FLAGGED:", "").strip() if "FLAGGED:" in result else result
         return {"approved": False, "reason": reason}
+
+
+def extract_job_skills(
+    job_title: str,
+    description: str,
+    responsibilities: str = "",
+    qualifications: str = "",
+) -> list[str]:
+    """Use Gemini to extract skills from a job posting as a deduped list."""
+    _ensure_configured()
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    prompt = f"""You are a job intelligence assistant that extracts the most relevant skills from a job posting.
+
+JOB TITLE:
+{job_title}
+
+JOB DESCRIPTION:
+{description}
+
+RESPONSIBILITIES:
+{responsibilities}
+
+QUALIFICATIONS:
+{qualifications}
+
+Extract the top skills and technologies required for this role. Include programming languages, frameworks, tools/platforms,
+and core soft skills if explicitly stated.
+
+Return a comma-separated list only (no extra text)."""
+
+    response = model.generate_content(prompt)
+    text = response.text.strip()
+
+    # Normalize and split
+    candidate_skills = [s.strip() for s in text.replace("\n", ",").split(",") if s.strip()]
+    unique_skills = []
+    seen = set()
+
+    for skill in candidate_skills:
+        normalized = skill.lower()
+        if normalized not in seen:
+            seen.add(normalized)
+            unique_skills.append(skill)
+        if len(unique_skills) >= 15:
+            break
+
+    return unique_skills

@@ -26,6 +26,7 @@ from routes.skills import router as skills_router
 from routes.applications import router as applications_router
 from routes.analytics import router as analytics_router
 from upload_images import upload_career_images
+from gemini_service import extract_job_skills
 
 from jwt_auth import verify_jwt
 
@@ -133,6 +134,20 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
         # Extract skills_raw and uploaded_by before passing to Job constructor
         skills_raw = job_data.pop("skills_raw", [])
         uploaded_by = job_data.pop("uploaded_by", "admin")
+
+        # Use Gemini to infer skills if no explicit skills were provided
+        if not skills_raw:
+            try:
+                skills_raw = extract_job_skills(
+                    job_title=job_data.get("title", ""),
+                    description=job_data.get("description", ""),
+                    responsibilities=job_data.get("responsibilities", ""),
+                    qualifications=job_data.get("qualifications", "")
+                )
+                logger.info(f"Gemini extracted {len(skills_raw)} skills for job '{job_data.get('title', '')}'")
+            except Exception as e:
+                logger.error(f"Gemini skill extraction failed for job '{job_data.get('title', '')}': {e}")
+                skills_raw = []
 
         db_job = Job(uploaded_by=uploaded_by, status="published", **job_data)
         # compute embedding for job content (title + employer + description)
