@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@/app/components/authComponents';
 import type { Job } from '@/types';
-import { supabase } from "@/app/lib/supabase";
-
-const API_BASE = 'http://127.0.0.1:8000';
+import fastAxiosInstance from '@/axiosConfig/axiosfig';
 
 export function useSavedJobs() {
   const { user } = useUser();
@@ -30,21 +28,8 @@ export function useSavedJobs() {
       setLoading(true);
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) return;
-
-        const res = await fetch(`${API_BASE}/api/saved-jobs`, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (!res.ok) throw new Error('Failed to fetch');
-
-        const data = await res.json();
+        const res = await fastAxiosInstance.get('/api/saved-jobs');
+        const data = res.data;
 
         if (!cancelled) {
           const jobs: Job[] = data.map((item: any) => item.job);
@@ -76,32 +61,12 @@ export function useSavedJobs() {
   // Toggle Save
   // -------------------------
   const toggleSave = async (jobId: string) => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      console.error("No session found");
-      return;
-    }
-
-    const token = session.access_token;
     const isSaved = savedJobs.has(jobId);
 
     try {
       if (isSaved) {
         // DELETE
-        const res = await fetch(
-          `${API_BASE}/api/saved-jobs/${jobId}`,
-          {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!res.ok) throw new Error('Delete failed');
+        await fastAxiosInstance.delete(`/api/saved-jobs/${jobId}`);
 
         // UI update
         setSavedJobs(prev => {
@@ -116,25 +81,7 @@ export function useSavedJobs() {
 
       } else {
         // POST
-        const res = await fetch(
-          `${API_BASE}/api/saved-jobs`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              job_id: jobId
-            }),
-          }
-        );
-
-        if (!res.ok) {
-          const error = await res.json();
-          console.error(error);
-          throw new Error('Save failed');
-        }
+        await fastAxiosInstance.post('/api/saved-jobs', { job_id: jobId });
 
         // UI update
         setSavedJobs(prev => new Set(prev).add(jobId));
