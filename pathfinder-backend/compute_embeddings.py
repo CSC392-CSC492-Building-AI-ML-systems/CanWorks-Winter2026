@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Job
-from fastembed import TextEmbedding
+from sentence_transformers import SentenceTransformer
 
-model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 
 def compute():

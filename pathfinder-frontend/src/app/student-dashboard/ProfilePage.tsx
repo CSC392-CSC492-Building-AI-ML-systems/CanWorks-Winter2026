@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Label, CheckBox, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/app/components/globalComponents';
 import { User, Mail, GraduationCap, Briefcase, Award, Trash2 } from 'lucide-react';
-import type { StudentUser, StudentUserData } from '@/types';
 import { useUser} from '@/app/components/authComponents';
+import { SkillMultiSelect } from '@/app/components/SkillMultiSelect';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 6 }, (_, i) => currentYear + i);
@@ -18,7 +18,7 @@ interface StudentFormData {
     graduationMonth: string;
     graduationYear: string;
     major: string;
-    skills: string;
+    skills: string[];
 }
 
 export function ProfilePage() {
@@ -30,7 +30,7 @@ export function ProfilePage() {
         graduationMonth: '',
         graduationYear: '',
         major: '',
-        skills: '',
+        skills: [],
     });
     const [lookingFor, setLookingFor] = useState<('internship' | 'coop' | 'new-grad')[]>([]);
     const [coopSchool, setCoopSchool] = useState('');
@@ -43,7 +43,7 @@ export function ProfilePage() {
                 graduationMonth: user.userData?.graduationMonth || '',
                 graduationYear: user.userData?.graduationYear || '',
                 major: user.userData?.major || '',
-                skills: user.userData?.skills.join(', ') || '',
+                skills: user.userData?.skills || [],
             });
 
             setLookingFor(user.userData?.lookingFor || []);
@@ -63,7 +63,7 @@ export function ProfilePage() {
                 lookingFor,
                 coopSchool: lookingFor.includes('coop') ? coopSchool : undefined,
                 major: formData.major,
-                skills: formData.skills.split(',').map(s => s.trim()).filter(Boolean),
+                skills: formData.skills,
             }
         });
         setIsEditing(false);
@@ -71,7 +71,7 @@ export function ProfilePage() {
         window.location.reload();
     };
 
-    const toggleLookingFor = (type: 'internship' | 'coop' | 'new-grad', checked: boolean) => {
+    const toggleLookingFor = (type: 'internship' | 'coop' | 'new-grad') => {
         setLookingFor(prev =>
             prev ? (prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]) : [type]
         );
@@ -177,7 +177,7 @@ export function ProfilePage() {
                                     <CheckBox
                                     id="edit-internship"
                                     checked={lookingFor.includes('internship')}
-                                    onChange={(e) => toggleLookingFor('internship', e.target.checked)}
+                                    onChange={(e) => toggleLookingFor('internship')}
                                     />
                                     <Label htmlFor="edit-internship" className="cursor-pointer">Internships</Label>
                                 </div>
@@ -185,7 +185,7 @@ export function ProfilePage() {
                                     <CheckBox
                                     id="edit-coop"
                                     checked={lookingFor.includes('coop')}
-                                    onChange={(e) => toggleLookingFor('coop', e.target.checked)}
+                                    onChange={(e) => toggleLookingFor('coop')}
                                     />
                                     <Label htmlFor="edit-coop" className="cursor-pointer">Co-op Programs</Label>
                                 </div>
@@ -193,7 +193,7 @@ export function ProfilePage() {
                                     <CheckBox
                                     id="edit-new-grad"
                                     checked={lookingFor.includes('new-grad')}
-                                    onChange={(e) => toggleLookingFor('new-grad', e.target.checked)}
+                                    onChange={(e) => toggleLookingFor('new-grad')}
                                     />
                                     <Label htmlFor="edit-new-grad" className="cursor-pointer">New Grad Roles</Label>
                                 </div>
@@ -216,14 +216,11 @@ export function ProfilePage() {
                             </div>
                         )}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="skills">Skills (comma-separated)</Label>
-                            <Input
-                            id="skills"
-                            value={formData.skills}
-                            onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                            />
-                        </div>
+                        <SkillMultiSelect
+                            selectedSkills={formData.skills}
+                            onSkillsChange={(skills) => setFormData({ ...formData, skills })}
+                            label="Skills"
+                        />
                         </form>
                     ) : (
                         <div className="space-y-6">

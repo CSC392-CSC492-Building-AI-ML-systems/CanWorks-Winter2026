@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/components/authComponents';
 import { Button, Input, CheckBox, Textarea, Switch, Card, CardContent, Label, Alert, AlertDescription  } from '@/app/components/globalComponents';
-import { GraduationCap, Building2 } from 'lucide-react';
+import { SkillMultiSelect } from '@/app/components/SkillMultiSelect';
+import { GraduationCap, Building2, Shield, Crown } from 'lucide-react';
 import type { UserType, UserData, User } from '@/types';
 
 
@@ -106,7 +107,7 @@ export function SignUpPage() {
         graduationMonth: '',
         graduationYear: '',
         major: '',
-        skills: '',
+        skills: [] as string[],
     });
     const [lookingFor, setLookingFor] = useState<('internship' | 'coop' | 'new-grad')[]>([]);
     const [coopSchool, setCoopSchool] = useState('');
@@ -139,7 +140,7 @@ export function SignUpPage() {
             lookingFor,
             coopSchool: lookingFor.includes('coop') ? coopSchool : undefined,
             major: studentFormData.major,
-            skills: studentFormData.skills.split(',').map(s => s.trim()).filter(Boolean),
+            skills: studentFormData.skills,
         }));
     };
 
@@ -160,6 +161,22 @@ export function SignUpPage() {
         }));
     };
 
+    const handleAdminSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
+            userType: 'admin',
+        }));
+    };
+
+    const handleSuperAdminSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
+            userType: 'super-admin',
+        }));
+    };
+
     const toggleLookingFor = (type: 'internship' | 'coop' | 'new-grad') => {
         setLookingFor(prev =>
         prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
@@ -168,6 +185,8 @@ export function SignUpPage() {
     const userTypes: { type: UserType; label: string; icon: any; description: string }[] = [
         { type: 'student', label: 'Student', icon: GraduationCap, description: 'Find internships and jobs' },
         { type: 'employer', label: 'Employer', icon: Building2, description: 'Recruit top talent' },
+        { type: 'admin', label: 'Admin', icon: Shield, description: 'Manage platform' },
+        { type: 'super-admin', label: 'Super Admin', icon: Crown, description: 'Full access' },
     ];
     
     if  (privacyPolicyOpen) {
@@ -217,8 +236,8 @@ export function SignUpPage() {
 
                     {/* User Type Selector */}
                     <div className="mb-6">
-                    <Label className="text-sm text-gray-600 mb-3 block">Account Type</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <Label className="text-sm text-gray-600 mb-3 block">Account Type (Debug Mode)</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {userTypes.map((type) => (
                         <Card
                             key={type.type}
@@ -388,12 +407,9 @@ export function SignUpPage() {
                         )}
 
                         <div className="space-y-2">
-                        <Label htmlFor="skills">Skills (comma-separated)</Label>
-                        <Input
-                            id="skills"
-                            value={studentFormData.skills}
-                            onChange={(e) => setStudentFormData({ ...studentFormData, skills: e.target.value })}
-                            placeholder="e.g., React, Python, Design"
+                        <SkillMultiSelect
+                            selectedSkills={studentFormData.skills}
+                            onSkillsChange={(skills) => setStudentFormData({ ...studentFormData, skills })}
                         />
                         <p className="text-sm text-gray-500">This helps us suggest roles you might not think about</p>
                         </div>
@@ -523,6 +539,75 @@ export function SignUpPage() {
                     </form>
                     )}
 
+                    {/* Admin Form */}
+                    {userType === 'admin' && (
+                    <form onSubmit={handleAdminSubmit} className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+                        <div className="space-y-2">
+                        <Label htmlFor="admin-email">Email Address</Label>
+                        <Input
+                            id="admin-email"
+                            type="text"
+                            inputMode="email"
+                            autoComplete="email"
+                            required
+                            value={userFormData.email}
+                            onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+                            placeholder="admin@canworks.com"
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="admin-password">Password</Label>
+                        <Input
+                            id="admin-password"
+                            type="password"
+                            required
+                            value={userFormData.password}
+                            onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                            placeholder="Enter a strong password"
+                        />
+                        </div>
+
+                        <Button type="submit" className="w-full" loading={loading}>
+                        Create Admin Account
+                        </Button>
+                    </form>
+                    )}
+
+                    {/* Super Admin Form */}
+                    {userType === 'super-admin' && (
+                    <form onSubmit={handleSuperAdminSubmit} className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+                        <div className="space-y-2">
+                        <Label htmlFor="admin-email">Email Address</Label>
+                        <Input
+                            id="admin-email"
+                            type="text"
+                            inputMode="email"
+                            autoComplete="email"
+                            required
+                            value={userFormData.email}
+                            onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+                            placeholder="admin@canworks.com"
+                        />
+                        </div>
+
+                        <div className="space-y-2">
+                        <Label htmlFor="admin-password">Password</Label>
+                        <Input
+                            id="admin-password"
+                            type="password"
+                            required
+                            value={userFormData.password}
+                            onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                            placeholder="Enter a strong password"
+                        />
+                        </div>
+
+                        <Button type="submit" className="w-full" loading={loading}>
+                        Create Super Admin Account
+                        </Button>
+                    </form>
+                    )}
                     <span className="text-sm text-gray-600">
                         Already have an account?
                     </span>{' '}

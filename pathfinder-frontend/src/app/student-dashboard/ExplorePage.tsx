@@ -6,6 +6,7 @@ import type { SavedSearch, Job, JobSkill, StudentUserData } from '@/types';
 import JobDetailsSidebar from '@/app/components/JobDetailsSidebar';
 import { useSavedJobs } from "@/app/hooks/useSavedJobs";
 import { useUser } from '@/app/components/authComponents';
+import { SkillMultiSelect } from '@/app/components/SkillMultiSelect';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
 
 interface ExplorePageProps {
@@ -236,6 +237,7 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
         location: '',
         mode: [] as ('Remote' | 'On Site' | 'Hybrid')[],
         paymentTypes: [] as ('paid' | 'unpaid')[],
+        skillFilters: [] as string[],
     });
 
     useEffect(() => {
@@ -245,6 +247,12 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
     useEffect(() => {
         localStorage.setItem('savedSearches', JSON.stringify(savedSearches));
     }, [savedSearches]);
+
+    useEffect(() => {
+        if (user?.userData?.skills) {
+            setFilters(prev => ({ ...prev, skillFilters: user.userData.skills }));
+        }
+    }, [user]);
 
     const toggleType = (type: 'intern' | 'coop' | 'new-grad' | 'part time' | 'full-time') => {
         setFilters(prev => ({
@@ -311,6 +319,12 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
         if (filters.paymentTypes.length > 0) {
             const jobPaymentType = job.with_pay ? 'paid' : 'unpaid';
             if (!filters.paymentTypes.includes(jobPaymentType)) return false;
+        }
+        
+        if (filters.skillFilters.length > 0) {
+            // job.skills may be undefined. We're filtering by skill_name in JobSkill objects.
+            const has = job.skills?.some((s: JobSkill) => filters.skillFilters.includes(s.skill_name));
+            if (!has) return false;
         }
         if (filters.keywords) {
             const keywords = filters.keywords.toLowerCase().split(',').map(k => k.trim());
@@ -431,6 +445,12 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                                         </div>
                                     </div>
                                 </div>
+
+                                <SkillMultiSelect
+                                    selectedSkills={filters.skillFilters}
+                                    onSkillsChange={(skills) => setFilters({ ...filters, skillFilters: skills })}
+                                    label="Filter by Skills"
+                                />
 
                                 <div className="space-y-2">
                                     <Label htmlFor="keywords">Keyword Search</Label>

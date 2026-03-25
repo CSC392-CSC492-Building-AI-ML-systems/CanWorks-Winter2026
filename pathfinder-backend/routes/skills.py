@@ -33,3 +33,10 @@ def create_skill(data: SkillCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(skill)
     return skill
+
+# Get all active skills
+@router.get("/all", response_model=SkillSearchResponse)
+def get_all_skills(db: Session = Depends(get_db)):
+    skills = db.query(Skill).filter(Skill.status == "active").all()
+    return SkillSearchResponse(skills=skills)
+

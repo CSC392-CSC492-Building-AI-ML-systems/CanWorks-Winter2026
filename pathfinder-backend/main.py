@@ -1,7 +1,6 @@
 import os
 import logging
 from uuid import UUID
-from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi import UploadFile, File # handle file uploads
@@ -11,14 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent
+from models import Job, SavedJob, CareerInsight, FeedLog, JobEvent, JobSkill, Skill
 from schemas import JobResponse, JobListResponse, UploadResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
 import numpy as np
-from fastembed import TextEmbedding
+from sentence_transformers import SentenceTransformer
 from schemas import JobEventCreate
 
 from routes.job_descriptions import router as job_descriptions_router
@@ -26,10 +25,6 @@ from routes.templates import router as templates_router
 from routes.skills import router as skills_router
 from routes.applications import router as applications_router
 from routes.analytics import router as analytics_router
-from routes.startup_contacts import router as startup_contacts_router, public_router as startup_contacts_public_router
-from routes.student_resume import router as student_resume_router
-from routes.outreach import router as outreach_router
-from routes.gmail_auth import router as gmail_auth_router
 from upload_images import upload_career_images
 
 from jwt_auth import verify_jwt
@@ -52,7 +47,7 @@ async def load_embedding_model():
 
     try:
         logger.info("Loading embedding model...")
-        _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
         logger.info("Embedding model loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load embedding model: {e}. Continuing without embeddings.")
@@ -95,7 +90,7 @@ def embed_text(text: str):
     if _embed_model is None:
         try:
             logger.info("Loading embedding model lazily...")
-            _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
         except Exception as e:
             logger.error(f"Failed to load embedding model: {e}")
             return None
@@ -117,11 +112,6 @@ app.include_router(templates_router)
 app.include_router(skills_router)
 app.include_router(applications_router)
 app.include_router(analytics_router)
-app.include_router(startup_contacts_router)
-app.include_router(startup_contacts_public_router)
-app.include_router(student_resume_router)
-app.include_router(outreach_router)
-app.include_router(gmail_auth_router)
 
 # Upload endpoint
 # register a POST route
@@ -437,8 +427,6 @@ def log_job_event(payload: JobEventCreate, user=Depends(verify_jwt), db: Session
 # -----------------------------
 @app.get("/api/recommendations", response_model=JobListResponse)
 def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Depends(get_db)):
-    from sqlalchemy import func
-
     user_id = user["sub"]
 
     # Extract profile preferences from JWT
@@ -493,36 +481,25 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
             pass
 
     for e in view_events:
-        try:
-            job = e.job
-            if job and getattr(job, 'embedding', None) and job.id not in seen_job_ids:
-                emb_vectors.append(np.array(job.embedding))
-                emb_weights.append(weight_view)
-                seen_job_ids.add(job.id)
-        except Exception:
-            pass
+        if e.job and getattr(e.job, 'embedding', None):
+            emb_list.append(np.array(e.job.embedding))
 
-    logger.info(f"User {user_id} - collected embeddings: saved={len([w for w in emb_weights if w==weight_saved])}, views={len([w for w in emb_weights if w==weight_view])}, total_vectors={len(emb_vectors)}")
+    if len(emb_list) == 0:
+        # fallback: return most recent published jobs
+        query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).order_by(Job.created_at.desc()).limit(k).all()
+        total = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).count()
+        return JobListResponse(jobs=query, total=total, page=1, page_size=k)
 
-    if len(emb_vectors) == 0 or sum(emb_weights) == 0:
-        # Cold start fallback — return filtered recent jobs based on preferences
-        candidates.sort(key=lambda j: j.created_at or datetime.min, reverse=True)
-        top = candidates[:k]
-        return JobListResponse(jobs=top, total=len(candidates), page=1, page_size=k)
+    user_emb = np.mean(np.stack(emb_list, axis=0), axis=0)
 
-    try:
-        mat = np.stack(emb_vectors, axis=0)
-        w = np.array(emb_weights, dtype=float)
-        user_emb = np.average(mat, axis=0, weights=w)
-    except Exception:
-        user_emb = np.mean(np.stack(emb_vectors, axis=0), axis=0)
-
-    # Score candidates with cosine similarity + skill overlap boost
+    # fetch candidate jobs with embeddings
+    candidates = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).all()
     scored = []
     for job in candidates:
         if not getattr(job, 'embedding', None):
             continue
         job_emb = np.array(job.embedding)
+        # cosine similarity
         sim = float(np.dot(user_emb, job_emb) / (np.linalg.norm(user_emb) * np.linalg.norm(job_emb) + 1e-10))
 
         # Boost score based on skill overlap with student profile
