@@ -22,6 +22,24 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
         'full-time': 'bg-indigo-100 text-indigo-700',
     };
 
+    const postingLink = (() => {
+        const raw = job.link_to_posting?.trim();
+        if (!raw) return null;
+
+        const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+        try {
+            const parsed = new URL(href);
+            const hostname = parsed.hostname.replace(/^www\./i, '');
+            return {
+                href,
+                label: hostname.replace(/\.com$/i, '') || 'View posting',
+            };
+        } catch {
+            return null;
+        }
+    })();
+
     return (
         <Card className="p-6 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between gap-4">
@@ -81,14 +99,14 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
                 )}
             </Button>
 
-            {job.link_to_posting && (
+            {postingLink && (
             <Button
                 size="sm"
                 asChild
                 className="shrink-0"
             >
                 <a
-                    href={job.link_to_posting}
+                    href={postingLink.href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1"
@@ -96,12 +114,12 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
                         fastAxiosInstance.post('/api/track-click', {
                             job_id: job.id,
                             job_type: job.employment_type || null,
-                            url: job.link_to_posting || '',
+                            url: postingLink.href,
                         }).catch(() => {});
                     }}
                 >
                 <ExternalLink className="w-4 h-4" />
-                {new URL(job.link_to_posting).hostname.replace('www.', '').replace('.com', '')}
+                {postingLink.label}
                 </a>
             </Button>
             )}
