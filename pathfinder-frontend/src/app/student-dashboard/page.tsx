@@ -30,10 +30,13 @@ function StudentDashboardContent() {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [total, setTotal] = useState<number>(0);
     const [recommended, setRecommended] = useState<Job[]>([]);
+    const [jobsLoading, setJobsLoading] = useState<boolean>(false);
+    const [jobsPage, setJobsPage] = useState<number>(1);
+    const jobsPageSize = 10;
     const [activeTab, setActiveTab] = useState(defaultTab);
 
     useEffect(() => {
-        fetchJobs();
+        fetchJobs(1);
         fetchRecommendations();
         fastAxiosInstance.post('/api/track-visit').catch(() => {});
     }, []);
@@ -45,17 +48,20 @@ function StudentDashboardContent() {
         }
     }, [activeTab]);
 
-    const fetchJobs = () => {
-        let url = `/api/jobs?page=${1}&page_size=${10}`;
-
-        fastAxiosInstance.get(url).then(
-            response => {
-                setJobs(response.data.jobs);
-                setTotal(response.data.total);
-            }
-        ).catch(
-            error => console.error("Failed to fetch jobs", error)
-        );
+    const fetchJobs = async (page: number) => {
+        setJobsLoading(true);
+        try {
+            const url = `/api/jobs?page=${page}&page_size=${jobsPageSize}`;
+            const response = await fastAxiosInstance.get(url);
+            setJobs(response.data.jobs || []);
+            setTotal(response.data.total || 0);
+            setJobsPage(page);
+        } catch (error) {
+            console.error("Failed to fetch jobs", error);
+            setJobs([]);
+        } finally {
+            setJobsLoading(false);
+        }
     };
 
     const fetchRecommendations = async () => {
@@ -111,12 +117,19 @@ function StudentDashboardContent() {
                         </TabsList>
 
                         <TabsContent value="home" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                            <HomePage totalJobs={total} recommendedJobs={recommended}>
+                            <HomePage totalJobs={total} jobs={jobs} recommendedJobs={recommended}>
                             </HomePage>
                         </TabsContent>
 
                         <TabsContent value="explore" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                                <ExplorePage jobs={jobs} total={total}>
+                                <ExplorePage
+                                    jobs={jobs}
+                                    total={total}
+                                    page={jobsPage}
+                                    pageSize={jobsPageSize}
+                                    isLoading={jobsLoading}
+                                    onPageChange={fetchJobs}
+                                >
                                 </ExplorePage>
                         </TabsContent>
 

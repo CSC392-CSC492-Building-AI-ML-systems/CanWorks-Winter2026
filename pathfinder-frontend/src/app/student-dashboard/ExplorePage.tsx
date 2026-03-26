@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { JobCard } from '@/app/components/JobCard';
-import { Card, CheckBox, Label, Input, Button, Badge } from '@/app/components/globalComponents';
-import { Search, Bell, BellRing, Mail, MapPin, Briefcase, Send, X, FileText, Upload } from 'lucide-react';
+import { Card, CheckBox, Label, Input, Button } from '@/app/components/globalComponents';
+import { Search, Bell, BellRing, Mail, Send, X, FileText, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { SavedSearch, Job, JobSkill, StudentUserData } from '@/types';
 import JobDetailsSidebar from '@/app/components/JobDetailsSidebar';
 import { useSavedJobs } from "@/app/hooks/useSavedJobs";
@@ -11,6 +11,10 @@ import fastAxiosInstance from '@/axiosConfig/axiosfig';
 interface ExplorePageProps {
     jobs: Job[];
     total: number;
+    page: number;
+    pageSize: number;
+    isLoading?: boolean;
+    onPageChange: (page: number) => void;
 }
 
 // Application form modal
@@ -197,14 +201,12 @@ function ApplicationModal({
     );
 }
 
-export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
+export function ExplorePage({ jobs = [], total = 0, page = 1, pageSize = 10, isLoading = false, onPageChange }: ExplorePageProps) {
     const { savedJobs, toggleSave } = useSavedJobs();
     const { user } = useUser<'student'>();
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
     const [applyingJob, setApplyingJob] = useState<Job | null>(null);
-    const pageSize = 10;
-    const [page, setPage] = useState(1);
 
     const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
 
@@ -322,7 +324,17 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
     });
 
     const totalJobs = filteredJobs.length;
-    const totalPages = Math.ceil(total / pageSize);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    const canGoPrev = page > 1;
+    const canGoNext = page < totalPages;
+
+    const handlePageChange = (nextPage: number) => {
+        if (nextPage < 1 || nextPage > totalPages || nextPage === page || isLoading) {
+            return;
+        }
+        onPageChange(nextPage);
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -515,6 +527,9 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                     </div>
 
                     <div className="space-y-4">
+                        {isLoading && (
+                            <Card className="p-4 text-center text-gray-600">Loading jobs...</Card>
+                        )}
                         {filteredJobs.map(job => (
                             <div key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
                                 <JobCard
@@ -535,6 +550,34 @@ export function ExplorePage({ jobs = [], total = 0 }: ExplorePageProps) {
                             <p className="text-gray-600">Try adjusting your filters to see more results</p>
                         </Card>
                     )}
+
+                    <Card className="p-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <p className="text-sm text-gray-600">
+                                Page {page} of {totalPages}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePageChange(page - 1)}
+                                    disabled={!canGoPrev || isLoading}
+                                >
+                                    <ChevronLeft className="w-4 h-4 mr-1" />
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePageChange(page + 1)}
+                                    disabled={!canGoNext || isLoading}
+                                >
+                                    Next
+                                    <ChevronRight className="w-4 h-4 ml-1" />
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
                 </main>
             </div>
 
