@@ -22,6 +22,17 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
         'full-time': 'bg-indigo-100 text-indigo-700',
     };
 
+    // compute parsed host for link-to-posting safely; if parsing fails, treat as no link
+    const parsedHost = (() => {
+        try {
+            if (!job.link_to_posting) return null;
+            const u = new URL(job.link_to_posting);
+            return u.hostname.replace('www.', '').replace('.com', '');
+        } catch (e) {
+            return null;
+        }
+    })();
+
     return (
         <Card className="p-6 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between gap-4">
@@ -81,14 +92,14 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
                 )}
             </Button>
 
-            {job.link_to_posting && (
+            {parsedHost && (
             <Button
                 size="sm"
                 asChild
                 className="shrink-0"
             >
                 <a
-                    href={job.link_to_posting}
+                    href={job.link_to_posting || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1"
@@ -101,7 +112,7 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
                     }}
                 >
                 <ExternalLink className="w-4 h-4" />
-                {new URL(job.link_to_posting).hostname.replace('www.', '').replace('.com', '')}
+                {parsedHost}
                 </a>
             </Button>
             )}
