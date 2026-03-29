@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 // Updated imports to use the single widgets file
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
-import { BarChart3, Briefcase, Building, Users } from 'lucide-react';
+import { BarChart3, Briefcase, Building, Users, Lightbulb } from 'lucide-react';
 import { Header } from '@/app/components/header';
 import AdminReports from '@/app/admin-dashboard/reports';
 import AdminJobManagement from '@/app/admin-dashboard/jobManagement';
 import StartupContactsManager from '@/app/admin-dashboard/StartupContactsManager';
 import EmployerManagement from '@/app/admin-dashboard/employerManagement';
+import CareerInsightsManagement from '@/app/admin-dashboard/careerInsightsManagement';
 
 export default function AdminDashboardPage() {
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
@@ -37,6 +38,10 @@ export default function AdminDashboardPage() {
                         <Users className="w-4 h-4" />
                         Employer Management
                         </TabsTrigger>
+                        <TabsTrigger value="insights" className="flex items-center gap-2">
+                        <Lightbulb className="w-4 h-4" />
+                        Career Insights
+                        </TabsTrigger>
                         <TabsTrigger value="startups" className="flex items-center gap-2">
                         <Building className="w-4 h-4" />
                         Startup Contacts
@@ -53,6 +58,10 @@ export default function AdminDashboardPage() {
 
                     <TabsContent value="employers" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
                         <EmployerManagement />
+                    </TabsContent>
+
+                    <TabsContent value="insights" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
+                        <CareerInsightsManagement />
                     </TabsContent>
 
                     <TabsContent value="startups" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">

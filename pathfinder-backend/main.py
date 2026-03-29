@@ -483,6 +483,52 @@ def get_career_insights(db: Session = Depends(get_db)):
     return insights
 
 
+@app.put("/api/career-insights/{insight_id}", response_model=CareerInsightsResponse)
+def update_career_insight(
+    insight_id: int,
+    payload: CareerInsightCreate,
+    user=Depends(verify_jwt),
+    db: Session = Depends(get_db)
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    if user_meta.get("userType") not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    insight = db.query(CareerInsight).filter(CareerInsight.id == insight_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Career insight not found")
+
+    insight.title = payload.title
+    insight.category = payload.category
+    insight.excerpt = payload.excerpt
+    insight.content = payload.content
+    insight.articleLink = payload.articleLink
+    insight.imageUrl = payload.imageUrl
+    insight.readTime = payload.readTime
+    db.commit()
+    db.refresh(insight)
+    return insight
+
+
+@app.delete("/api/career-insights/{insight_id}")
+def delete_career_insight(
+    insight_id: int,
+    user=Depends(verify_jwt),
+    db: Session = Depends(get_db)
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    if user_meta.get("userType") not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    insight = db.query(CareerInsight).filter(CareerInsight.id == insight_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Career insight not found")
+
+    db.delete(insight)
+    db.commit()
+    return {"message": "Career insight deleted"}
+
+
 # Public endpoint for students to browse published employer job descriptions
 @app.get("/api/published-jobs", response_model=JobListResponse)
 def get_published_jobs(

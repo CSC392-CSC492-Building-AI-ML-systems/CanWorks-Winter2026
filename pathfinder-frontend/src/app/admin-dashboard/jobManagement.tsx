@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 // Updated imports to use the single widgets file
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Input, Label, Textarea, Badge, Tabs, TabsContent, TabsList, TabsTrigger, Alert, AlertDescription } from '@/app/components/globalComponents';
-import { Upload, RefreshCw, FileSpreadsheet, Server, CheckCircle2, AlertCircle, Lightbulb, Plus, ExternalLink, Search, MapPin, ChevronLeft, ChevronRight, Trash2, Briefcase } from 'lucide-react';
+import { Upload, RefreshCw, FileSpreadsheet, Server, CheckCircle2, AlertCircle, Plus, ExternalLink, Search, MapPin, ChevronLeft, ChevronRight, Trash2, Briefcase } from 'lucide-react';
 import JobDetailsSidebar from '@/app/components/JobDetailsSidebar';
 import type { Job, JobSkill } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,14 +18,6 @@ interface JobSource {
   status: 'active' | 'error' | 'pending';
 }
 
-interface CareerInsightDraft {
-  title: string;
-  category: string;
-  excerpt: string;
-  content: string;
-  articleLink: string;
-  image?: File | null;
-}
 
 export default function AdminJobManagement({ onJobDeleted }: { onJobDeleted?: () => void } = {}) {
   // Browse Jobs state
@@ -84,9 +76,6 @@ export default function AdminJobManagement({ onJobDeleted }: { onJobDeleted?: ()
   // Upload state
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [insightDraft, setInsightDraft] = useState<CareerInsightDraft>({ title: '', category: '', excerpt: '', content: '', articleLink: '', image: null });
-  const [contentType, setContentType] = useState<'content' | 'link'>('content');
-  const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success'>('idle');
   const [uploadResult, setUploadResult] = useState<{jobs_added: number; jobs_skipped: number; errors: string[]} | null>(null); // store response from backend to indicate how many jobs were added, skipped
 
   const [sources, setSources] = useState<JobSource[]>([
@@ -145,46 +134,6 @@ export default function AdminJobManagement({ onJobDeleted }: { onJobDeleted?: ()
     }, 2000);
   };
 
-  const handlePublishInsight = async () => {
-    setPublishStatus('publishing');
-
-    try {
-      let imageUrl = '';
-      
-      // Upload image first if there is one
-      if (insightDraft.image) {
-        const formData = new FormData();
-        formData.append('file', insightDraft.image);
-        
-        const uploadResponse = await fastAxiosInstance.post('/api/upload-career-image', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        
-        imageUrl = uploadResponse.data.url;
-      }
-      
-      // Create career insight with the image URL
-      await fastAxiosInstance.post('/api/create-career-insights', {
-        title: insightDraft.title,
-        category: insightDraft.category,
-        excerpt: insightDraft.excerpt,
-        content: insightDraft.content,
-        articleLink: insightDraft.articleLink,
-        imageUrl: imageUrl,
-        readTime: '5 min read', // You can calculate or add an input for this
-      });
-      
-      setPublishStatus('idle');
-      setInsightDraft({ title: '', category: '', excerpt: '', content: '', articleLink: '', image: null });
-      setContentType('content');
-    } catch (error) {
-      console.error('Error publishing insight:', error);
-      setPublishStatus('idle');
-    }
-  };
-
   // Helpers
   const formatDateTime = (date: Date) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
 
@@ -203,7 +152,6 @@ export default function AdminJobManagement({ onJobDeleted }: { onJobDeleted?: ()
         <TabsTrigger value="browse" className="flex items-center gap-2"><Briefcase className="w-4 h-4" />Browse Jobs</TabsTrigger>
         <TabsTrigger value="upload" className="flex items-center gap-2"><Upload className="w-4 h-4" />Upload Jobs</TabsTrigger>
         <TabsTrigger value="sources" className="flex items-center gap-2"><Server className="w-4 h-4" />Job Sources</TabsTrigger>
-        <TabsTrigger value="insights" className="flex items-center gap-2"><Lightbulb className="w-4 h-4" />Career Insights</TabsTrigger>
       </TabsList>
 
       <TabsContent value="browse" className="space-y-6">
@@ -447,116 +395,6 @@ export default function AdminJobManagement({ onJobDeleted }: { onJobDeleted?: ()
         </Card>
       </TabsContent>
 
-      <TabsContent value="insights" className="space-y-6">
-        <Card>
-            <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Lightbulb className="w-5 h-5" />Create Career Insight</CardTitle>
-            <CardDescription>Publish helpful career advice and guidance for students</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-            <div>
-                <Label htmlFor="insight-title">Title</Label>
-                <Input id="insight-title" placeholder="e.g., How to Ace Your Technical Interview" value={insightDraft.title} onChange={(e) => setInsightDraft({ ...insightDraft, title: e.target.value })} className="mt-2" />
-            </div>
-            <div>
-                <Label htmlFor="insight-category">Category</Label>
-                <Input id="insight-category" placeholder="e.g., Interview Tips, Resume Tips" value={insightDraft.category} onChange={(e) => setInsightDraft({ ...insightDraft, category: e.target.value })} className="mt-2" />
-            </div>
-            <div>
-                <Label htmlFor="insight-image">Featured Image</Label>
-                {!insightDraft.image ? (
-                  <div className="mt-2">
-                    <Input 
-                      id="insight-image" 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setInsightDraft({ ...insightDraft, image: file });
-                        }
-                      }} 
-                      className="hidden" 
-                    />
-                    <Button 
-                      type="button"
-                      variant="outline" 
-                      onClick={() => document.getElementById('insight-image')?.click()}
-                      className="w-full"
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Image
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="mt-2 flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                    <span className="text-sm text-gray-700">{insightDraft.image.name}</span>
-                    <Button 
-                      type="button"
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setInsightDraft({ ...insightDraft, image: null })}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                )}
-            </div>
-            <div>
-                <Label htmlFor="insight-excerpt">Excerpt</Label>
-                <Textarea id="insight-excerpt" placeholder="Brief summary (150-200 characters)" value={insightDraft.excerpt} onChange={(e) => setInsightDraft({ ...insightDraft, excerpt: e.target.value })} className="mt-2 resize-none" rows={3} />
-            </div>
-            <div>
-                <Label>Content Type</Label>
-                <div className="flex gap-4 mt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="contentType" 
-                      value="content"
-                      checked={contentType === 'content'}
-                      onChange={() => {
-                        setContentType('content');
-                        setInsightDraft({...insightDraft, articleLink: ''});
-                      }}
-                    />
-                    Write Content
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="contentType" 
-                      value="link"
-                      checked={contentType === 'link'}
-                      onChange={() => {
-                        setContentType('link');
-                        setInsightDraft({...insightDraft, content: ''});
-                      }}
-                    />
-                    External Article Link
-                  </label>
-                </div>
-            </div>
-            {contentType === 'content' ? (
-              <div>
-                  <Label htmlFor="insight-content">Content</Label>
-                  <Textarea id="insight-content" placeholder="Full article content" value={insightDraft.content} onChange={(e) => setInsightDraft({ ...insightDraft, content: e.target.value })} className="mt-2 resize-none" rows={12} />
-              </div>
-            ) : (
-              <div>
-                  <Label htmlFor="insight-link">Article Link</Label>
-                  <Input id="insight-link" type="url" placeholder="https://example.com/article" value={insightDraft.articleLink} onChange={(e) => setInsightDraft({ ...insightDraft, articleLink: e.target.value })} className="mt-2" />
-              </div>
-            )}
-            <div className="flex gap-2">
-                <Button onClick={handlePublishInsight} disabled={!insightDraft.title || publishStatus === 'publishing'} className="flex-1">
-                {publishStatus === 'publishing' ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Publishing...</> : <><CheckCircle2 className="w-4 h-4 mr-2" />Publish Insight</>}
-                </Button>
-                <Button variant="outline" className="flex-1">Save as Draft</Button>
-            </div>
-            </CardContent>
-        </Card>
-      </TabsContent>
     </Tabs>
   );
 }
