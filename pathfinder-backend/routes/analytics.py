@@ -147,6 +147,7 @@ def get_admin_analytics(
     total_admin_jobs = db.query(Job).filter(
         Job.uploaded_by == "admin",
         Job.status == "published",
+        Job.deleted_at.is_(None),
     ).count()
 
     # Employer jobs — published and not deleted, not expired

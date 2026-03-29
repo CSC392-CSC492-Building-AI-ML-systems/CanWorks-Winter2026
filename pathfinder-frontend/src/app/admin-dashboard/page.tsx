@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react';
+import React, { useState } from 'react';
 // Updated imports to use the single widgets file
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
@@ -11,6 +11,8 @@ import AdminJobManagement from '@/app/admin-dashboard/jobManagement';
 import StartupContactsManager from '@/app/admin-dashboard/StartupContactsManager';
 
 export default function AdminDashboardPage() {
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
+
   return (
     <UserProvider userType={"admin"}>
         <CheckUser requireUser={true}>
@@ -37,11 +39,11 @@ export default function AdminDashboardPage() {
                     </TabsList>
 
                     <TabsContent value="reports" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                        <AdminReports />
+                        <AdminReports refreshKey={analyticsRefreshKey} />
                     </TabsContent>
 
                     <TabsContent value="jobs" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                        <AdminJobManagement />
+                        <AdminJobManagement onJobDeleted={() => setAnalyticsRefreshKey(k => k + 1)} />
                     </TabsContent>
 
                     <TabsContent value="startups" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">

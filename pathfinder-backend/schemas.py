@@ -115,6 +115,16 @@ class SavedJobWithDetails(BaseModel):
         from_attributes = True
 
 
+class RemovedJobInfo(BaseModel):
+    title: str
+    employer: Optional[str] = None
+
+
+class SavedJobsResponse(BaseModel):
+    active: List[SavedJobWithDetails]
+    removed: List[RemovedJobInfo]
+
+
 
 # Template schemas
 class TemplateResponse(BaseModel):

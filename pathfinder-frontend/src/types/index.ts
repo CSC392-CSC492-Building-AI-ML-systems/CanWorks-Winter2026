@@ -79,7 +79,7 @@ export interface Job {
     employer_id: string | null;
     title: string;
     employer: string | null;
-    employer_website: string | null;
+    employer_website?: string | null;
     description: string | null;
     responsibilities: string | null;
     province: string | null;
@@ -177,7 +177,7 @@ export interface SkillOption {
 }
 
 // Application types
-export type ApplicationStatus = 'pending' | 'reviewing' | 'interview' | 'offer' | 'rejected' | 'hired';
+export type ApplicationStatus = 'pending' | 'reviewing' | 'interview' | 'offer' | 'rejected' | 'hired' | 'job_deleted';
 
 export interface ApplicationItem {
     id: string;

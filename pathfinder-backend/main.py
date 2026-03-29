@@ -1,7 +1,7 @@
 import os
 import logging
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi import UploadFile, File # handle file uploads
@@ -11,9 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent
+from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent, Application
 from schemas import JobResponse, JobListResponse, UploadResponse
-from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
+from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails, SavedJobsResponse, RemovedJobInfo
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
@@ -330,7 +330,7 @@ def unsave_job(
 # -----------------------------
 # GET - Fetch Saved Jobs
 # -----------------------------
-@app.get("/api/saved-jobs", response_model=list[SavedJobWithDetails])
+@app.get("/api/saved-jobs", response_model=SavedJobsResponse)
 def get_saved_jobs(
     user=Depends(verify_jwt),
     db: Session = Depends(get_db)
@@ -343,7 +343,54 @@ def get_saved_jobs(
         SavedJob.user_id == user_id
     ).all()
 
-    return saved_jobs
+    active = []
+    removed = []
+    stale_ids = []
+
+    for sj in saved_jobs:
+        if sj.job and sj.job.deleted_at is None:
+            active.append(sj)
+        else:
+            if sj.job:
+                removed.append(RemovedJobInfo(title=sj.job.title, employer=sj.job.employer))
+            stale_ids.append(sj.id)
+
+    # Auto-clean stale saved job records
+    if stale_ids:
+        db.query(SavedJob).filter(SavedJob.id.in_(stale_ids)).delete(synchronize_session=False)
+        db.commit()
+
+    return SavedJobsResponse(active=active, removed=removed)
+
+
+# -----------------------------
+# DELETE - Admin Delete Job
+# -----------------------------
+@app.delete("/api/admin/jobs/{job_id}")
+def admin_delete_job(
+    job_id: UUID,
+    user=Depends(verify_jwt),
+    db: Session = Depends(get_db)
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    user_type = user_meta.get("userType", "")
+    if user_type not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job.deleted_at = datetime.now(timezone.utc)
+    job.updated_at = datetime.now(timezone.utc)
+
+    # Update all applications for this job to "job_deleted"
+    db.query(Application).filter(
+        Application.job_id == job_id
+    ).update({"status": "job_deleted", "updated_at": datetime.now(timezone.utc)})
+
+    db.commit()
+    return {"message": "Job deleted"}
 
 
 @app.post("/api/create-career-insights", response_model=CareerInsightsResponse)
