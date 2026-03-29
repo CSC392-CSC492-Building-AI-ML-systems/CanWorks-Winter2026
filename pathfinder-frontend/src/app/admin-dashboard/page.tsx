@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 // Updated imports to use the single widgets file
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { UserProvider, CheckUser } from '@/app/components/authComponents';
-import { BarChart3, Briefcase, Building } from 'lucide-react';
+import { BarChart3, Briefcase, Building, Users } from 'lucide-react';
 import { Header } from '@/app/components/header';
 import AdminReports from '@/app/admin-dashboard/reports';
 import AdminJobManagement from '@/app/admin-dashboard/jobManagement';
 import StartupContactsManager from '@/app/admin-dashboard/StartupContactsManager';
+import EmployerManagement from '@/app/admin-dashboard/employerManagement';
 
 export default function AdminDashboardPage() {
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
@@ -32,6 +33,10 @@ export default function AdminDashboardPage() {
                         <Briefcase className="w-4 h-4" />
                         Job Management
                         </TabsTrigger>
+                        <TabsTrigger value="employers" className="flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        Employer Management
+                        </TabsTrigger>
                         <TabsTrigger value="startups" className="flex items-center gap-2">
                         <Building className="w-4 h-4" />
                         Startup Contacts
@@ -44,6 +49,10 @@ export default function AdminDashboardPage() {
 
                     <TabsContent value="jobs" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
                         <AdminJobManagement onJobDeleted={() => setAnalyticsRefreshKey(k => k + 1)} />
+                    </TabsContent>
+
+                    <TabsContent value="employers" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
+                        <EmployerManagement />
                     </TabsContent>
 
                     <TabsContent value="startups" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">

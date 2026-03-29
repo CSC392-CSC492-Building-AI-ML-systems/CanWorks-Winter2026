@@ -125,6 +125,18 @@ class SavedJobsResponse(BaseModel):
     removed: List[RemovedJobInfo]
 
 
+class EmployerInfo(BaseModel):
+    id: str
+    email: str
+    company_name: str
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    address: Optional[str] = None
+    available_for_events: bool = False
+    sponsor: bool = False
+    special_notes: Optional[str] = None
+    created_at: Optional[str] = None
+
 
 # Template schemas
 class TemplateResponse(BaseModel):

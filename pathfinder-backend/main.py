@@ -15,6 +15,7 @@ from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEv
 from schemas import JobResponse, JobListResponse, UploadResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails, SavedJobsResponse, RemovedJobInfo
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
+from schemas import EmployerInfo
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
 import numpy as np
@@ -391,6 +392,58 @@ def admin_delete_job(
 
     db.commit()
     return {"message": "Job deleted"}
+
+
+# -----------------------------
+# GET - Admin List Employers
+# -----------------------------
+@app.get("/api/admin/employers", response_model=list[EmployerInfo])
+def admin_list_employers(
+    user=Depends(verify_jwt),
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    user_type = user_meta.get("userType", "")
+    if user_type not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    from upload_images import _get_supabase
+
+    employers = []
+    try:
+        client = _get_supabase()
+        page = 1
+        all_users = []
+        while True:
+            batch = client.auth.admin.list_users(page=page, per_page=1000)
+            if not batch:
+                break
+            all_users.extend(batch)
+            if len(batch) < 1000:
+                break
+            page += 1
+
+        for u in all_users:
+            meta = getattr(u, "user_metadata", None) or {}
+            ud = meta.get("userData", {})
+            if ud.get("userType") != "employer":
+                continue
+            contact = ud.get("contactInfo", {})
+            employers.append(EmployerInfo(
+                id=u.id,
+                email=getattr(u, "email", ""),
+                company_name=ud.get("companyName", "Unknown"),
+                phone=contact.get("phone"),
+                website=contact.get("website"),
+                address=contact.get("address"),
+                available_for_events=ud.get("availableForEvents", False),
+                sponsor=ud.get("sponsor", False),
+                special_notes=ud.get("specialNotes"),
+                created_at=str(getattr(u, "created_at", "")) if getattr(u, "created_at", None) else None,
+            ))
+    except Exception as e:
+        logger.error(f"Failed to fetch employers from Supabase: {e}")
+
+    return employers
 
 
 @app.post("/api/create-career-insights", response_model=CareerInsightsResponse)
