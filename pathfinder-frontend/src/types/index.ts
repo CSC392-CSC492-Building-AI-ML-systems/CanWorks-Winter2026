@@ -79,6 +79,7 @@ export interface Job {
     employer_id: string | null;
     title: string;
     employer: string | null;
+    employer_website: string | null;
     description: string | null;
     responsibilities: string | null;
     province: string | null;

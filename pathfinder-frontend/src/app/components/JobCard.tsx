@@ -46,7 +46,20 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
             <div className="flex-1 space-y-3">
             <div>
                 <h3 className="text-lg mb-1">{job.title}</h3>
-                <p className="text-gray-600">{job.employer}</p>
+                <div className="flex items-center gap-2">
+                    <p className="text-gray-600">{job.employer}</p>
+                    {job.employer_website && (
+                        <a
+                            href={job.employer_website.startsWith('http') ? job.employer_website : `https://${job.employer_website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 text-sm hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {new URL(job.employer_website.startsWith('http') ? job.employer_website : `https://${job.employer_website}`).hostname.replace('www.', '')}
+                        </a>
+                    )}
+                </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">

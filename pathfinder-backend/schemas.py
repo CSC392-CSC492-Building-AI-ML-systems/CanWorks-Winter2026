@@ -35,6 +35,7 @@ class JobResponse(BaseModel):
     employer_id: Optional[str] = None
     title: str
     employer: Optional[str] = None
+    employer_website: Optional[str] = None
     description: Optional[str] = None
     responsibilities: Optional[str] = None
     province: Optional[str] = None

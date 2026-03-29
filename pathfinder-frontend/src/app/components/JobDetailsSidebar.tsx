@@ -54,6 +54,19 @@ export default function JobDetailsSidebar({ job, onClose, onViewInExplore }: Pro
                         <h3 className="text-lg font-semibold line-clamp-2">{job.title}</h3>
                         <p className="text-sm text-gray-500">
                             {job.employer}
+                            {job.employer_website && (
+                                <>
+                                    {' · '}
+                                    <a
+                                        href={job.employer_website.startsWith('http') ? job.employer_website : `https://${job.employer_website}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline"
+                                    >
+                                        Website
+                                    </a>
+                                </>
+                            )}
                             {' — '}
                             {(() => {
                                 const city = job.city && job.city.toLowerCase() !== 'not specified' ? job.city : null;

@@ -83,6 +83,15 @@ app.add_middleware(
 try:
     logger.info("Initializing database...")
     Base.metadata.create_all(bind=engine)
+    # Add employer_website column if it doesn't exist
+    with engine.connect() as conn:
+        from sqlalchemy import text as sql_text, inspect
+        inspector = inspect(engine)
+        columns = [c["name"] for c in inspector.get_columns("jobs")]
+        if "employer_website" not in columns:
+            conn.execute(sql_text("ALTER TABLE jobs ADD COLUMN employer_website VARCHAR"))
+            conn.commit()
+            logger.info("Added employer_website column to jobs table")
     logger.info("Database initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize database: {e}")
