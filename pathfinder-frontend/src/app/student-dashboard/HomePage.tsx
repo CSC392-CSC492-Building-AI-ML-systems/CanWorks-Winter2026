@@ -32,7 +32,7 @@ function PrevArrow(props: any) {
   );
 }
 
-export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined }: { totalJobs: number, recommendedJobs?: Job[] }) {
+export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined, onSwitchTab, onViewJobInExplore }: { totalJobs: number, recommendedJobs?: Job[], onSwitchTab?: (tab: string) => void, onViewJobInExplore?: (job: Job) => void }) {
     const { savedJobs, savedJobDetails, toggleSave, loading } = useSavedJobs();
     const [fetchedJobs, setFetchedJobs] = useState<Job[]>([]);
     const [loadingJobs, setLoadingJobs] = useState(true);
@@ -190,7 +190,7 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
             </div>
         </section>
 
-        <JobDetailsSidebar job={selectedJob} onClose={() => setSelectedJob(null)} />
+        <JobDetailsSidebar job={selectedJob} onClose={() => setSelectedJob(null)} onViewInExplore={onViewJobInExplore ? () => { if (selectedJob) { onViewJobInExplore(selectedJob); setSelectedJob(null); } } : undefined} />
         </div>
     );
 }
