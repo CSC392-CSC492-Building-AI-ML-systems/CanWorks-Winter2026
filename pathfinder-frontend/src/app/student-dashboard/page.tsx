@@ -121,7 +121,7 @@ function StudentDashboardContent() {
                         </TabsContent>
 
                         <TabsContent value="explore" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                                <ExplorePage jobs={jobs} total={total} initialSelectedJob={sharedSelectedJob} onConsumeSelectedJob={() => setSharedSelectedJob(null)}>
+                                <ExplorePage jobs={jobs} total={total} initialSelectedJob={sharedSelectedJob} onConsumeSelectedJob={() => setSharedSelectedJob(null)} onSwitchTab={setActiveTab}>
                                 </ExplorePage>
                         </TabsContent>
 
