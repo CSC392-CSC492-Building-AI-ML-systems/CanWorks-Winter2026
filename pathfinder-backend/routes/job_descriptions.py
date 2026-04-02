@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, get_current_user_with_metadata
 from database import get_db
 from models import Job, JobSkill, Skill
 from schemas import (
@@ -40,6 +40,8 @@ def _to_response(job: Job) -> JobResponse:
         employer_id=job.employer_id,
         template_id=job.template_id,
         title=job.title,
+        employer=job.employer,
+        employer_website=job.employer_website,
         industry=job.industry,
         job_function=job.job_function,
         seniority_level=job.seniority_level,
@@ -81,12 +83,20 @@ def _get_owned_job(job_id: UUID, user_id: str, db: Session) -> Job:
 @router.post("", response_model=JobResponse)
 def create_job_description(
     data: JobDescriptionCreate,
-    user_id: str = Depends(get_current_user),
+    user_payload: dict = Depends(get_current_user_with_metadata),
     db: Session = Depends(get_db)
 ):
+    user_id = user_payload.get("sub")
+    user_meta = user_payload.get("user_metadata", {}).get("userData", {})
+    company_name = user_meta.get("companyName", "")
+    contact_info = user_meta.get("contactInfo", {})
+    company_website = contact_info.get("website", "")
+
     job = Job(
         uploaded_by="employer",
         employer_id=user_id,
+        employer=company_name or None,
+        employer_website=company_website or None,
         template_id=data.template_id,
         title=data.job_title,
         industry=data.industry,

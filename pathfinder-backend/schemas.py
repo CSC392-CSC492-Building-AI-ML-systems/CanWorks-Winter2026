@@ -35,6 +35,7 @@ class JobResponse(BaseModel):
     employer_id: Optional[str] = None
     title: str
     employer: Optional[str] = None
+    employer_website: Optional[str] = None
     description: Optional[str] = None
     responsibilities: Optional[str] = None
     province: Optional[str] = None
@@ -113,6 +114,28 @@ class SavedJobWithDetails(BaseModel):
     class Config:
         from_attributes = True
 
+
+class RemovedJobInfo(BaseModel):
+    title: str
+    employer: Optional[str] = None
+
+
+class SavedJobsResponse(BaseModel):
+    active: List[SavedJobWithDetails]
+    removed: List[RemovedJobInfo]
+
+
+class EmployerInfo(BaseModel):
+    id: str
+    email: str
+    company_name: str
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    address: Optional[str] = None
+    available_for_events: bool = False
+    sponsor: bool = False
+    special_notes: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 # Template schemas

@@ -17,6 +17,7 @@ export function SkillSearchInput({ label, selectedSkills, onAdd, onRemove }: Ski
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SkillOption[]>([]);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [hasFocused, setHasFocused] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -35,8 +36,10 @@ export function SkillSearchInput({ label, selectedSkills, onAdd, onRemove }: Ski
         }
     };
 
-    // Debounced search: waits 300ms after the user stops typing before calling the API
+    // Debounced search: only runs after user has interacted with this input
     useEffect(() => {
+        if (!hasFocused) return;
+
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
         debounceRef.current = setTimeout(() => {
@@ -46,7 +49,7 @@ export function SkillSearchInput({ label, selectedSkills, onAdd, onRemove }: Ski
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [query, selectedSkills]);
+    }, [query, selectedSkills, hasFocused]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -131,6 +134,7 @@ export function SkillSearchInput({ label, selectedSkills, onAdd, onRemove }: Ski
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onFocus={() => {
+                            setHasFocused(true);
                             if (results.length > 0) {
                                 setShowDropdown(true);
                             } else {

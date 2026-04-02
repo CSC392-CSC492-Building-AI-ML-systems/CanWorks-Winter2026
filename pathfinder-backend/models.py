@@ -16,6 +16,7 @@ class Job(Base):
     # Core fields
     title = Column(String, nullable=False)
     employer = Column(String, nullable=True)
+    employer_website = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     responsibilities = Column(Text, nullable=True)
     province = Column(String, nullable=True)

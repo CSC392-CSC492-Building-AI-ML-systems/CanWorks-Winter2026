@@ -1,6 +1,7 @@
 import os
 import logging
 from uuid import UUID
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi import UploadFile, File # handle file uploads
@@ -10,10 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import Job, SavedJob, CareerInsight, FeedLog, JobEvent, JobSkill, Skill
+from models import Job, SavedJob, CareerInsight, FeedLog, JobEvent, Application, JobSkill, Skill
 from schemas import JobResponse, JobListResponse, UploadResponse
-from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails
+from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails, SavedJobsResponse, RemovedJobInfo
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
+from schemas import EmployerInfo
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
 import numpy as np
@@ -79,6 +81,15 @@ app.add_middleware(
 try:
     logger.info("Initializing database...")
     Base.metadata.create_all(bind=engine)
+    # Add employer_website column if it doesn't exist
+    with engine.connect() as conn:
+        from sqlalchemy import text as sql_text, inspect
+        inspector = inspect(engine)
+        columns = [c["name"] for c in inspector.get_columns("jobs")]
+        if "employer_website" not in columns:
+            conn.execute(sql_text("ALTER TABLE jobs ADD COLUMN employer_website VARCHAR"))
+            conn.commit()
+            logger.info("Added employer_website column to jobs table")
     logger.info("Database initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize database: {e}")
@@ -348,7 +359,7 @@ def unsave_job(
 # -----------------------------
 # GET - Fetch Saved Jobs
 # -----------------------------
-@app.get("/api/saved-jobs", response_model=list[SavedJobWithDetails])
+@app.get("/api/saved-jobs", response_model=SavedJobsResponse)
 def get_saved_jobs(
     user=Depends(verify_jwt),
     db: Session = Depends(get_db)
@@ -361,7 +372,106 @@ def get_saved_jobs(
         SavedJob.user_id == user_id
     ).all()
 
-    return saved_jobs
+    active = []
+    removed = []
+    stale_ids = []
+
+    for sj in saved_jobs:
+        if sj.job and sj.job.deleted_at is None:
+            active.append(sj)
+        else:
+            if sj.job:
+                removed.append(RemovedJobInfo(title=sj.job.title, employer=sj.job.employer))
+            stale_ids.append(sj.id)
+
+    # Auto-clean stale saved job records
+    if stale_ids:
+        db.query(SavedJob).filter(SavedJob.id.in_(stale_ids)).delete(synchronize_session=False)
+        db.commit()
+
+    return SavedJobsResponse(active=active, removed=removed)
+
+
+# -----------------------------
+# DELETE - Admin Delete Job
+# -----------------------------
+@app.delete("/api/admin/jobs/{job_id}")
+def admin_delete_job(
+    job_id: UUID,
+    user=Depends(verify_jwt),
+    db: Session = Depends(get_db)
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    user_type = user_meta.get("userType", "")
+    if user_type not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job.deleted_at = datetime.now(timezone.utc)
+    job.updated_at = datetime.now(timezone.utc)
+
+    # Update all applications for this job to "job_deleted"
+    db.query(Application).filter(
+        Application.job_id == job_id
+    ).update({"status": "job_deleted", "updated_at": datetime.now(timezone.utc)})
+
+    db.commit()
+    return {"message": "Job deleted"}
+
+
+# -----------------------------
+# GET - Admin List Employers
+# -----------------------------
+@app.get("/api/admin/employers", response_model=list[EmployerInfo])
+def admin_list_employers(
+    user=Depends(verify_jwt),
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    user_type = user_meta.get("userType", "")
+    if user_type not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    from upload_images import _get_supabase
+
+    employers = []
+    try:
+        client = _get_supabase()
+        page = 1
+        all_users = []
+        while True:
+            batch = client.auth.admin.list_users(page=page, per_page=1000)
+            if not batch:
+                break
+            all_users.extend(batch)
+            if len(batch) < 1000:
+                break
+            page += 1
+
+        for u in all_users:
+            meta = getattr(u, "user_metadata", None) or {}
+            ud = meta.get("userData", {})
+            if ud.get("userType") != "employer":
+                continue
+            contact = ud.get("contactInfo", {})
+            employers.append(EmployerInfo(
+                id=u.id,
+                email=getattr(u, "email", ""),
+                company_name=ud.get("companyName", "Unknown"),
+                phone=contact.get("phone"),
+                website=contact.get("website"),
+                address=contact.get("address"),
+                available_for_events=ud.get("availableForEvents", False),
+                sponsor=ud.get("sponsor", False),
+                special_notes=ud.get("specialNotes"),
+                created_at=str(getattr(u, "created_at", "")) if getattr(u, "created_at", None) else None,
+            ))
+    except Exception as e:
+        logger.error(f"Failed to fetch employers from Supabase: {e}")
+
+    return employers
 
 
 @app.post("/api/create-career-insights", response_model=CareerInsightsResponse)
@@ -399,6 +509,52 @@ async def upload_career_image(file: UploadFile = File(...)):
 def get_career_insights(db: Session = Depends(get_db)):
     insights = db.query(CareerInsight).order_by(CareerInsight.created_at.desc()).all()
     return insights
+
+
+@app.put("/api/career-insights/{insight_id}", response_model=CareerInsightsResponse)
+def update_career_insight(
+    insight_id: int,
+    payload: CareerInsightCreate,
+    user=Depends(verify_jwt),
+    db: Session = Depends(get_db)
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    if user_meta.get("userType") not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    insight = db.query(CareerInsight).filter(CareerInsight.id == insight_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Career insight not found")
+
+    insight.title = payload.title
+    insight.category = payload.category
+    insight.excerpt = payload.excerpt
+    insight.content = payload.content
+    insight.articleLink = payload.articleLink
+    insight.imageUrl = payload.imageUrl
+    insight.readTime = payload.readTime
+    db.commit()
+    db.refresh(insight)
+    return insight
+
+
+@app.delete("/api/career-insights/{insight_id}")
+def delete_career_insight(
+    insight_id: int,
+    user=Depends(verify_jwt),
+    db: Session = Depends(get_db)
+):
+    user_meta = user.get("user_metadata", {}).get("userData", {})
+    if user_meta.get("userType") not in ("admin", "super-admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    insight = db.query(CareerInsight).filter(CareerInsight.id == insight_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Career insight not found")
+
+    db.delete(insight)
+    db.commit()
+    return {"message": "Career insight deleted"}
 
 
 # Public endpoint for students to browse published employer job descriptions

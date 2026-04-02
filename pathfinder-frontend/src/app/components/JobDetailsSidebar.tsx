@@ -1,17 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ExternalLink, ArrowRight } from 'lucide-react';
 import type { Job } from '@/types';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
 
 interface Props {
     job: Job | null;
     onClose: () => void;
+    onViewInExplore?: () => void;
 }
 
-export default function JobDetailsSidebar({ job, onClose }: Props) {
-    if (!job) return null;
-
-    // ensure we only send one 'view' event per job open
+export default function JobDetailsSidebar({ job, onClose, onViewInExplore }: Props) {
     const sentRef = useRef(false);
 
     useEffect(() => {
@@ -31,6 +29,8 @@ export default function JobDetailsSidebar({ job, onClose }: Props) {
             sentRef.current = true;
         })();
     }, [job]);
+
+    if (!job) return null;
 
     return (
         <div
@@ -54,6 +54,19 @@ export default function JobDetailsSidebar({ job, onClose }: Props) {
                         <h3 className="text-lg font-semibold line-clamp-2">{job.title}</h3>
                         <p className="text-sm text-gray-500">
                             {job.employer}
+                            {job.employer_website && (
+                                <>
+                                    {' · '}
+                                    <a
+                                        href={job.employer_website.startsWith('http') ? job.employer_website : `https://${job.employer_website}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline"
+                                    >
+                                        Website
+                                    </a>
+                                </>
+                            )}
                             {' — '}
                             {(() => {
                                 const city = job.city && job.city.toLowerCase() !== 'not specified' ? job.city : null;
@@ -124,22 +137,35 @@ export default function JobDetailsSidebar({ job, onClose }: Props) {
 
                     <div className="pt-2 border-t flex items-center justify-between">
                         <div className="text-sm text-gray-500">Posted: {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Unknown'}</div>
-                        <a
-                            href={job.link_to_posting || '#'}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded text-sm"
-                            onClick={() => {
-                                fastAxiosInstance.post('/api/track-click', {
-                                    job_id: job.id,
-                                    job_type: job.employment_type || null,
-                                    url: job.link_to_posting || '',
-                                }).catch(() => {});
-                            }}
-                        >
-                            <ExternalLink className="w-4 h-4" />
-                            View Posting
-                        </a>
+                        {job.link_to_posting ? (
+                            <a
+                                href={job.link_to_posting}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded text-sm"
+                                onClick={() => {
+                                    fastAxiosInstance.post('/api/track-click', {
+                                        job_id: job.id,
+                                        job_type: job.employment_type || null,
+                                        url: job.link_to_posting || '',
+                                    }).catch(() => {});
+                                }}
+                            >
+                                <ExternalLink className="w-4 h-4" />
+                                View Posting
+                            </a>
+                        ) : onViewInExplore ? (
+                            <button
+                                className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded text-sm"
+                                onClick={() => {
+                                    onClose();
+                                    onViewInExplore();
+                                }}
+                            >
+                                <ArrowRight className="w-4 h-4" />
+                                View in Explore
+                            </button>
+                        ) : null}
                     </div>
                 </div>
             </aside>

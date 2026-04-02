@@ -18,16 +18,17 @@ const CustomXAxisTick = (props: { x?: number; y?: number; payload?: { value: str
     );
 };
 
-export default function AdminReports() {
+export default function AdminReports({ refreshKey = 0 }: { refreshKey?: number }) {
     const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        setLoading(true);
         adminAnalyticsApi.get()
             .then(res => setAnalytics(res.data))
             .catch(err => console.error('Failed to fetch admin analytics', err))
             .finally(() => setLoading(false));
-    }, []);
+    }, [refreshKey]);
 
     if (loading) {
         return <div className="text-center text-gray-500 py-12">Loading analytics...</div>;

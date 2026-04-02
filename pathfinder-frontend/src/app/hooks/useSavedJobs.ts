@@ -5,11 +5,19 @@ import { useUser } from '@/app/components/authComponents';
 import type { Job } from '@/types';
 import fastAxiosInstance from '@/axiosConfig/axiosfig';
 
+export interface RemovedJob {
+  title: string;
+  employer: string | null;
+}
+
 export function useSavedJobs() {
   const { user } = useUser();
   const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
   const [savedJobDetails, setSavedJobDetails] = useState<Job[]>([]);
+  const [removedJobs, setRemovedJobs] = useState<RemovedJob[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const clearRemovedJobs = () => setRemovedJobs([]);
 
   // -------------------------
   // Fetch saved jobs
@@ -18,6 +26,7 @@ export function useSavedJobs() {
     if (!user) {
       setSavedJobs(new Set());
       setSavedJobDetails([]);
+      setRemovedJobs([]);
       setLoading(false);
       return;
     }
@@ -32,11 +41,12 @@ export function useSavedJobs() {
         const data = res.data;
 
         if (!cancelled) {
-          const jobs: Job[] = data.map((item: any) => item.job);
-          const ids = new Set(jobs.map(job => job.id.toString()));
+          const activeJobs: Job[] = (data.active || []).map((item: any) => item.job);
+          const ids = new Set(activeJobs.map(job => job.id.toString()));
 
           setSavedJobs(ids);
-          setSavedJobDetails(jobs);
+          setSavedJobDetails(activeJobs);
+          setRemovedJobs(data.removed || []);
           setLoading(false);
         }
 
@@ -44,6 +54,7 @@ export function useSavedJobs() {
         if (!cancelled) {
           setSavedJobs(new Set());
           setSavedJobDetails([]);
+          setRemovedJobs([]);
           setLoading(false);
         }
       }
@@ -100,5 +111,7 @@ export function useSavedJobs() {
     savedJobDetails,
     toggleSave,
     loading,
+    removedJobs,
+    clearRemovedJobs,
   };
 }
