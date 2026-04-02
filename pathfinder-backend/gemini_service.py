@@ -97,15 +97,6 @@ FLAGGED: <brief reason>
 """
 
     response = model.generate_content(prompt)
-    
-    # Check if response was blocked by safety filters
-    if not response.candidates or not response.candidates[0].content:
-        return {"approved": False, "reason": "Content moderation failed - response blocked"}
-    
-    candidate = response.candidates[0]
-    if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 1:
-        return {"approved": False, "reason": "Content moderation failed - response blocked"}
-    
     result = response.text.strip()
 
     if result.startswith("APPROVED"):

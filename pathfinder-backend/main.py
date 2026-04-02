@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
-from models import Job, SavedJob, CareerInsight, FeedLog, JobEvent, Application, JobSkill, Skill
+from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent, Application
 from schemas import JobResponse, JobListResponse, UploadResponse
 from schemas import SavedJobCreate, SavedJobResponse, SavedJobWithDetails, SavedJobsResponse, RemovedJobInfo
 from schemas import CareerInsightCreate, CareerInsightsResponse, ImageUploadResponse
@@ -19,7 +19,7 @@ from schemas import EmployerInfo
 from excel_parser import parse_excel_file
 from fastapi import HTTPException
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from schemas import JobEventCreate
 
 from routes.job_descriptions import router as job_descriptions_router
@@ -50,7 +50,7 @@ async def load_embedding_model():
 
     try:
         logger.info("Loading embedding model...")
-        _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+        _embed_model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
         logger.info("Embedding model loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load embedding model: {e}. Continuing without embeddings.")
@@ -102,7 +102,7 @@ def embed_text(text: str):
     if _embed_model is None:
         try:
             logger.info("Loading embedding model lazily...")
-            _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+            _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
         except Exception as e:
             logger.error(f"Failed to load embedding model: {e}")
             return None
@@ -212,9 +212,9 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
 
         jobs_added += 1
 
-    db.commit() 
+    db.commit() # write all staged rows to the database at once
 
-    #Record feed log entry
+    # Record feed log entry
     feed_log = FeedLog(
         source=file.filename or "excel_upload",
         status="success" if not parse_errors else "partial",
@@ -674,20 +674,31 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
             pass
 
     for e in view_events:
-        if e.job and getattr(e.job, 'embedding', None):
-            emb_vectors.append(np.array(e.job.embedding))
-            emb_weights.append(weight_view)
+        try:
+            job = e.job
+            if job and getattr(job, 'embedding', None) and job.id not in seen_job_ids:
+                emb_vectors.append(np.array(job.embedding))
+                emb_weights.append(weight_view)
+                seen_job_ids.add(job.id)
+        except Exception:
+            pass
+    
+    logger.info(f"User {user_id} - collected embeddings: saved={len([w for w in emb_weights if w==weight_saved])}, views={len([w for w in emb_weights if w==weight_view])}, total_vectors={len(emb_vectors)}")
 
-    if len(emb_vectors) == 0:
-        # fallback: return most recent published jobs
-        query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).order_by(Job.created_at.desc()).limit(k).all()
-        total = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).count()
-        return JobListResponse(jobs=query, total=total, page=1, page_size=k)
+    if len(emb_vectors) == 0 or sum(emb_weights) == 0:
+        # Cold start fallback — return filtered recent jobs based on preferences
+        candidates.sort(key=lambda j: j.created_at or datetime.min, reverse=True)
+        top = candidates[:k]
+        return JobListResponse(jobs=top, total=len(candidates), page=1, page_size=k)
 
-    user_emb = np.mean(np.stack(emb_vectors, axis=0), axis=0)
+    try:
+        mat = np.stack(emb_vectors, axis=0)
+        w = np.array(emb_weights, dtype=float)
+        user_emb = np.average(mat, axis=0, weights=w)
+    except Exception:
+        user_emb = np.mean(np.stack(emb_vectors, axis=0), axis=0)
 
-    # fetch candidate jobs with embeddings
-    candidates = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).all()
+    # Score candidates with cosine similarity + skill overlap boost
     scored = []
     for job in candidates:
         if not getattr(job, 'embedding', None):

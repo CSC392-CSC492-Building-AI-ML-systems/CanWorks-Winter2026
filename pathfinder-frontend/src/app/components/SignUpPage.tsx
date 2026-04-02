@@ -185,8 +185,6 @@ export function SignUpPage() {
     const userTypes: { type: UserType; label: string; icon: any; description: string }[] = [
         { type: 'student', label: 'Student', icon: GraduationCap, description: 'Find internships and jobs' },
         { type: 'employer', label: 'Employer', icon: Building2, description: 'Recruit top talent' },
-        { type: 'admin', label: 'Admin', icon: Shield, description: 'Manage platform' },
-        { type: 'super-admin', label: 'Super Admin', icon: Crown, description: 'Full access' },
     ];
     
     if  (privacyPolicyOpen) {
@@ -236,8 +234,8 @@ export function SignUpPage() {
 
                     {/* User Type Selector */}
                     <div className="mb-6">
-                    <Label className="text-sm text-gray-600 mb-3 block">Account Type (Debug Mode)</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Label className="text-sm text-gray-600 mb-3 block">Account Type</Label>
+                    <div className="grid grid-cols-2 gap-3">
                         {userTypes.map((type) => (
                         <Card
                             key={type.type}
@@ -539,75 +537,7 @@ export function SignUpPage() {
                     </form>
                     )}
 
-                    {/* Admin Form */}
-                    {userType === 'admin' && (
-                    <form onSubmit={handleAdminSubmit} className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
-                        <div className="space-y-2">
-                        <Label htmlFor="admin-email">Email Address</Label>
-                        <Input
-                            id="admin-email"
-                            type="text"
-                            inputMode="email"
-                            autoComplete="email"
-                            required
-                            value={userFormData.email}
-                            onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
-                            placeholder="admin@canworks.com"
-                        />
-                        </div>
 
-                        <div className="space-y-2">
-                        <Label htmlFor="admin-password">Password</Label>
-                        <Input
-                            id="admin-password"
-                            type="password"
-                            required
-                            value={userFormData.password}
-                            onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
-                            placeholder="Enter a strong password"
-                        />
-                        </div>
-
-                        <Button type="submit" className="w-full" loading={loading}>
-                        Create Admin Account
-                        </Button>
-                    </form>
-                    )}
-
-                    {/* Super Admin Form */}
-                    {userType === 'super-admin' && (
-                    <form onSubmit={handleSuperAdminSubmit} className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
-                        <div className="space-y-2">
-                        <Label htmlFor="admin-email">Email Address</Label>
-                        <Input
-                            id="admin-email"
-                            type="text"
-                            inputMode="email"
-                            autoComplete="email"
-                            required
-                            value={userFormData.email}
-                            onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
-                            placeholder="admin@canworks.com"
-                        />
-                        </div>
-
-                        <div className="space-y-2">
-                        <Label htmlFor="admin-password">Password</Label>
-                        <Input
-                            id="admin-password"
-                            type="password"
-                            required
-                            value={userFormData.password}
-                            onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
-                            placeholder="Enter a strong password"
-                        />
-                        </div>
-
-                        <Button type="submit" className="w-full" loading={loading}>
-                        Create Super Admin Account
-                        </Button>
-                    </form>
-                    )}
                     <span className="text-sm text-gray-600">
                         Already have an account?
                     </span>{' '}

@@ -106,7 +106,9 @@ export default function AdminJobManagement({ onJobDeleted }: { onJobDeleted?: ()
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fastAxiosInstance.post('/api/upload-jobs', formData); // invoke the upload endpoint by sending the POST req
+      const response = await fastAxiosInstance.post('/api/upload-jobs', formData, {
+        timeout: 60000 // 1 minute for file upload with AI processing
+      }); 
       setUploadResult(response.data);
       setUploadStatus('success');
     } catch (error) {

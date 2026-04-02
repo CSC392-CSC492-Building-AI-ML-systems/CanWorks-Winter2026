@@ -71,7 +71,7 @@ export function ProfilePage() {
         window.location.reload();
     };
 
-    const toggleLookingFor = (type: 'internship' | 'coop' | 'new-grad') => {
+    const toggleLookingFor = (type: 'internship' | 'coop' | 'new-grad', checked: boolean) => {
         setLookingFor(prev =>
             prev ? (prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]) : [type]
         );
@@ -177,7 +177,7 @@ export function ProfilePage() {
                                     <CheckBox
                                     id="edit-internship"
                                     checked={lookingFor.includes('internship')}
-                                    onChange={(e) => toggleLookingFor('internship')}
+                                    onChange={(e) => toggleLookingFor('internship', e.target.checked)}
                                     />
                                     <Label htmlFor="edit-internship" className="cursor-pointer">Internships</Label>
                                 </div>
@@ -185,7 +185,7 @@ export function ProfilePage() {
                                     <CheckBox
                                     id="edit-coop"
                                     checked={lookingFor.includes('coop')}
-                                    onChange={(e) => toggleLookingFor('coop')}
+                                    onChange={(e) => toggleLookingFor('coop', e.target.checked)}
                                     />
                                     <Label htmlFor="edit-coop" className="cursor-pointer">Co-op Programs</Label>
                                 </div>
@@ -193,7 +193,7 @@ export function ProfilePage() {
                                     <CheckBox
                                     id="edit-new-grad"
                                     checked={lookingFor.includes('new-grad')}
-                                    onChange={(e) => toggleLookingFor('new-grad')}
+                                    onChange={(e) => toggleLookingFor('new-grad', e.target.checked)}
                                     />
                                     <Label htmlFor="edit-new-grad" className="cursor-pointer">New Grad Roles</Label>
                                 </div>
