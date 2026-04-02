@@ -9,7 +9,7 @@ from fastapi import Depends
 from fastapi import Query # Define query parameters with defaults and validation
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
+from sqlalchemy import or_, func # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
 from models import Job, JobSkill, Skill, SavedJob, CareerInsight, FeedLog, JobEvent, Application
 from schemas import JobResponse, JobListResponse, UploadResponse
@@ -32,6 +32,7 @@ from routes.student_resume import router as student_resume_router
 from routes.outreach import router as outreach_router
 from routes.gmail_auth import router as gmail_auth_router
 from upload_images import upload_career_images
+from gemini_service import extract_job_skills
 
 from jwt_auth import verify_jwt
 
@@ -53,7 +54,7 @@ async def load_embedding_model():
 
     try:
         logger.info("Loading embedding model...")
-        _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        _embed_model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
         logger.info("Embedding model loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load embedding model: {e}. Continuing without embeddings.")
@@ -111,8 +112,7 @@ def embed_text(text: str):
             return None
 
     try:
-        vec_generator = _embed_model.embed([text])
-        vec = next(vec_generator)
+        vec = _embed_model.encode(text)
         return vec.tolist()
     except Exception as e:
         logger.error(f"Failed to embed text: {e}")
@@ -167,6 +167,43 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
         db.flush()  # flush to get the job id assigned
 
         # Process skills
+        if len(skills_raw) == 0:
+            # Get all existing skills from database for Gemini to match against
+            existing_skills = [skill.skill_name for skill in db.query(Skill).all()]
+            
+            # Use Gemini to infer skills if no explicit skills were provided
+            try:
+                skills_result = extract_job_skills(
+                    job_title=job_data.get("title", ""),
+                    description=job_data.get("description", ""),
+                    responsibilities=job_data.get("responsibilities", ""),
+                    qualifications=job_data.get("qualifications", ""),
+                    existing_skills=existing_skills
+                )
+                logger.info(f"Extracted skills for job '{job_data.get('title', '')}': {skills_result}")
+                
+                # Combine existing and new skills for this job
+                skills_raw = skills_result["existing_skills"] + skills_result["new_skills"]
+                
+                # Add any new skills to the database
+                for new_skill_name in skills_result["new_skills"]:
+                    new_skill_name = new_skill_name.strip()
+                    if not new_skill_name:
+                        continue
+                    # Check if this new skill already exists (case-insensitive)
+                    existing = db.query(Skill).filter(
+                        Skill.skill_name.ilike(new_skill_name)
+                    ).first()
+                    if not existing:
+                        new_skill = Skill(skill_name=new_skill_name)
+                        db.add(new_skill)
+                        db.flush()
+                        logger.info(f"Added new skill to database: {new_skill_name}")
+                        
+            except Exception as e:
+                logger.error(f"Failed to extract skills for job '{job_data.get('title', '')}': {e}")
+                skills_raw = []
+            
         for skill_name in skills_raw:
             skill_name_lower = skill_name.strip().lower()
             if not skill_name_lower:
@@ -592,8 +629,6 @@ def log_job_event(payload: JobEventCreate, user=Depends(verify_jwt), db: Session
 # -----------------------------
 @app.get("/api/recommendations", response_model=JobListResponse)
 def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Depends(get_db)):
-    from sqlalchemy import func
-
     user_id = user["sub"]
 
     # Extract profile preferences from JWT
@@ -656,7 +691,7 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
                 seen_job_ids.add(job.id)
         except Exception:
             pass
-
+    
     logger.info(f"User {user_id} - collected embeddings: saved={len([w for w in emb_weights if w==weight_saved])}, views={len([w for w in emb_weights if w==weight_view])}, total_vectors={len(emb_vectors)}")
 
     if len(emb_vectors) == 0 or sum(emb_weights) == 0:
@@ -678,6 +713,7 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
         if not getattr(job, 'embedding', None):
             continue
         job_emb = np.array(job.embedding)
+        # cosine similarity
         sim = float(np.dot(user_emb, job_emb) / (np.linalg.norm(user_emb) * np.linalg.norm(job_emb) + 1e-10))
 
         # Boost score based on skill overlap with student profile

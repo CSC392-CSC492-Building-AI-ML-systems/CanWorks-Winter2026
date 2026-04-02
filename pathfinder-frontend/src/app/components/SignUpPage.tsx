@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/components/authComponents';
 import { Button, Input, CheckBox, Textarea, Switch, Card, CardContent, Label, Alert, AlertDescription  } from '@/app/components/globalComponents';
-import { GraduationCap, Building2 } from 'lucide-react';
+import { SkillMultiSelect } from '@/app/components/SkillMultiSelect';
+import { GraduationCap, Building2, Shield, Crown } from 'lucide-react';
 import type { UserType, UserData, User } from '@/types';
 
 
@@ -106,7 +107,7 @@ export function SignUpPage() {
         graduationMonth: '',
         graduationYear: '',
         major: '',
-        skills: '',
+        skills: [] as string[],
     });
     const [lookingFor, setLookingFor] = useState<('internship' | 'coop' | 'new-grad')[]>([]);
     const [coopSchool, setCoopSchool] = useState('');
@@ -139,7 +140,7 @@ export function SignUpPage() {
             lookingFor,
             coopSchool: lookingFor.includes('coop') ? coopSchool : undefined,
             major: studentFormData.major,
-            skills: studentFormData.skills.split(',').map(s => s.trim()).filter(Boolean),
+            skills: studentFormData.skills,
         }));
     };
 
@@ -157,6 +158,22 @@ export function SignUpPage() {
             availableForEvents: employerFormData.availableForEvents,
             sponsor: employerFormData.sponsor,
             specialNotes: employerFormData.specialNotes,
+        }));
+    };
+
+    const handleAdminSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
+            userType: 'admin',
+        }));
+    };
+
+    const handleSuperAdminSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        handlePrivacyPolicy(() => handleSignUp(userFormData.email, userFormData.password, {
+            userType: 'super-admin',
         }));
     };
 
@@ -388,12 +405,9 @@ export function SignUpPage() {
                         )}
 
                         <div className="space-y-2">
-                        <Label htmlFor="skills">Skills (comma-separated)</Label>
-                        <Input
-                            id="skills"
-                            value={studentFormData.skills}
-                            onChange={(e) => setStudentFormData({ ...studentFormData, skills: e.target.value })}
-                            placeholder="e.g., React, Python, Design"
+                        <SkillMultiSelect
+                            selectedSkills={studentFormData.skills}
+                            onSkillsChange={(skills) => setStudentFormData({ ...studentFormData, skills })}
                         />
                         <p className="text-sm text-gray-500">This helps us suggest roles you might not think about</p>
                         </div>
@@ -522,6 +536,7 @@ export function SignUpPage() {
                         </Button>
                     </form>
                     )}
+
 
                     <span className="text-sm text-gray-600">
                         Already have an account?
