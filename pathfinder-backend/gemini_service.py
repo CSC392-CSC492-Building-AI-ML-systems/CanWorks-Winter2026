@@ -97,6 +97,15 @@ FLAGGED: <brief reason>
 """
 
     response = model.generate_content(prompt)
+    
+    # Check if response was blocked by safety filters
+    if not response.candidates or not response.candidates[0].content:
+        return {"approved": False, "reason": "Content moderation failed - response blocked"}
+    
+    candidate = response.candidates[0]
+    if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 1:
+        return {"approved": False, "reason": "Content moderation failed - response blocked"}
+    
     result = response.text.strip()
 
     if result.startswith("APPROVED"):
@@ -111,12 +120,24 @@ def extract_job_skills(
     description: str,
     responsibilities: str = "",
     qualifications: str = "",
-) -> list[str]:
-    """Use Gemini to extract skills from a job posting as a deduped list."""
+    existing_skills: list[str] = None,
+) -> dict:
+    """Use Gemini to extract skills from a job posting.
+    
+    Returns a dict with:
+    - 'existing_skills': list of skills that match existing DB skills
+    - 'new_skills': list of new skills that could be added to DB
+    """
     _ensure_configured()
     model = genai.GenerativeModel("gemini-2.5-flash")
+    
+    existing_skills_text = ""
+    if existing_skills:
+        existing_skills_text = "\nEXISTING SKILLS IN DATABASE:\n" + ", ".join(existing_skills)
 
-    prompt = f"""You are a job intelligence assistant that extracts the most relevant skills from a job posting.
+    prompt = f"""You are a job intelligence assistant that extracts skills from job postings and matches them to existing skills in our database.
+
+{existing_skills_text}
 
 JOB TITLE:
 {job_title}
@@ -130,25 +151,44 @@ RESPONSIBILITIES:
 QUALIFICATIONS:
 {qualifications}
 
-Extract the top skills and technologies required for this role. Include programming languages, frameworks, tools/platforms,
-and core soft skills if explicitly stated.
+Your task is to extract skills from this job posting and categorize them into two lists:
 
-Return a comma-separated list only (no extra text)."""
+1. EXISTING SKILLS: Skills that closely match skills already in our database (case-insensitive). Use the exact name from the database when possible.
+
+2. NEW SKILLS: Skills that don't exist in our database or are significantly different variations.
+
+Guidelines:
+- For EXISTING SKILLS: Match to the closest existing skill. For example, if "Python" exists in DB, match "python programming" to "Python".
+- For NEW SKILLS: Only include genuinely new skills, not minor variations.
+- Focus on technical skills, programming languages, frameworks, tools, and technologies.
+- Return maximum 10 skills total across both lists.
+
+Return your response in this exact format:
+EXISTING SKILLS: skill1, skill2, skill3
+NEW SKILLS: skill4, skill5, skill6"""
 
     response = model.generate_content(prompt)
     text = response.text.strip()
-
-    # Normalize and split
-    candidate_skills = [s.strip() for s in text.replace("\n", ",").split(",") if s.strip()]
-    unique_skills = []
-    seen = set()
-
-    for skill in candidate_skills:
-        normalized = skill.lower()
-        if normalized not in seen:
-            seen.add(normalized)
-            unique_skills.append(skill)
-        if len(unique_skills) >= 15:
-            break
-
-    return unique_skills
+    
+    # Parse the response
+    existing_skills_list = []
+    new_skills_list = []
+    
+    lines = text.split('\n')
+    for line in lines:
+        line = line.strip()
+        if line.startswith('EXISTING SKILLS:'):
+            skills_text = line.replace('EXISTING SKILLS:', '').strip()
+            if skills_text:
+                existing_skills_list = [s.strip() for s in skills_text.split(',') if s.strip()]
+        elif line.startswith('NEW SKILLS:'):
+            skills_text = line.replace('NEW SKILLS:', '').strip()
+            if skills_text:
+                new_skills_list = [s.strip() for s in skills_text.split(',') if s.strip()]
+    
+    print(f"Extracted for '{job_title}': existing={existing_skills_list}, new={new_skills_list}")
+    
+    return {
+        "existing_skills": existing_skills_list,
+        "new_skills": new_skills_list
+    }

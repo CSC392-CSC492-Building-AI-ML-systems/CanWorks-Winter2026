@@ -8,7 +8,7 @@ from fastapi import Depends
 from fastapi import Query # Define query parameters with defaults and validation
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_ # SQLAlchemy OR operator for combining search conditions
+from sqlalchemy import or_, func # SQLAlchemy OR operator for combining search conditions
 from database import engine, get_db, Base
 from models import Job, SavedJob, CareerInsight, FeedLog, JobEvent, JobSkill, Skill
 from schemas import JobResponse, JobListResponse, UploadResponse
@@ -97,8 +97,7 @@ def embed_text(text: str):
             return None
 
     try:
-        vec_generator = _embed_model.embed([text])
-        vec = next(vec_generator)
+        vec = _embed_model.encode(text)
         return vec.tolist()
     except Exception as e:
         logger.error(f"Failed to embed text: {e}")
@@ -135,20 +134,6 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
         skills_raw = job_data.pop("skills_raw", [])
         uploaded_by = job_data.pop("uploaded_by", "admin")
 
-        # Use Gemini to infer skills if no explicit skills were provided
-        if not skills_raw:
-            try:
-                skills_raw = extract_job_skills(
-                    job_title=job_data.get("title", ""),
-                    description=job_data.get("description", ""),
-                    responsibilities=job_data.get("responsibilities", ""),
-                    qualifications=job_data.get("qualifications", "")
-                )
-                logger.info(f"Gemini extracted {len(skills_raw)} skills for job '{job_data.get('title', '')}'")
-            except Exception as e:
-                logger.error(f"Gemini skill extraction failed for job '{job_data.get('title', '')}': {e}")
-                skills_raw = []
-
         db_job = Job(uploaded_by=uploaded_by, status="published", **job_data)
         # compute embedding for job content (title + employer + description)
         try:
@@ -162,6 +147,43 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
         db.flush()  # flush to get the job id assigned
 
         # Process skills
+        if len(skills_raw) == 0:
+            # Get all existing skills from database for Gemini to match against
+            existing_skills = [skill.skill_name for skill in db.query(Skill).all()]
+            
+            # Use Gemini to infer skills if no explicit skills were provided
+            try:
+                skills_result = extract_job_skills(
+                    job_title=job_data.get("title", ""),
+                    description=job_data.get("description", ""),
+                    responsibilities=job_data.get("responsibilities", ""),
+                    qualifications=job_data.get("qualifications", ""),
+                    existing_skills=existing_skills
+                )
+                logger.info(f"Extracted skills for job '{job_data.get('title', '')}': {skills_result}")
+                
+                # Combine existing and new skills for this job
+                skills_raw = skills_result["existing_skills"] + skills_result["new_skills"]
+                
+                # Add any new skills to the database
+                for new_skill_name in skills_result["new_skills"]:
+                    new_skill_name = new_skill_name.strip()
+                    if not new_skill_name:
+                        continue
+                    # Check if this new skill already exists (case-insensitive)
+                    existing = db.query(Skill).filter(
+                        Skill.skill_name.ilike(new_skill_name)
+                    ).first()
+                    if not existing:
+                        new_skill = Skill(skill_name=new_skill_name)
+                        db.add(new_skill)
+                        db.flush()
+                        logger.info(f"Added new skill to database: {new_skill_name}")
+                        
+            except Exception as e:
+                logger.error(f"Failed to extract skills for job '{job_data.get('title', '')}': {e}")
+                skills_raw = []
+            
         for skill_name in skills_raw:
             skill_name_lower = skill_name.strip().lower()
             if not skill_name_lower:
@@ -179,9 +201,9 @@ async def upload_jobs(file: UploadFile = File(...), db: Session = Depends(get_db
 
         jobs_added += 1
 
-    db.commit() # write all staged rows to the database at once
+    db.commit() 
 
-    # Record feed log entry
+    #Record feed log entry
     feed_log = FeedLog(
         source=file.filename or "excel_upload",
         status="success" if not parse_errors else "partial",
@@ -497,15 +519,16 @@ def get_recommendations(k: int = 10, user=Depends(verify_jwt), db: Session = Dep
 
     for e in view_events:
         if e.job and getattr(e.job, 'embedding', None):
-            emb_list.append(np.array(e.job.embedding))
+            emb_vectors.append(np.array(e.job.embedding))
+            emb_weights.append(weight_view)
 
-    if len(emb_list) == 0:
+    if len(emb_vectors) == 0:
         # fallback: return most recent published jobs
         query = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).order_by(Job.created_at.desc()).limit(k).all()
         total = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).count()
         return JobListResponse(jobs=query, total=total, page=1, page_size=k)
 
-    user_emb = np.mean(np.stack(emb_list, axis=0), axis=0)
+    user_emb = np.mean(np.stack(emb_vectors, axis=0), axis=0)
 
     # fetch candidate jobs with embeddings
     candidates = db.query(Job).filter(Job.status == "published", Job.deleted_at.is_(None)).all()
