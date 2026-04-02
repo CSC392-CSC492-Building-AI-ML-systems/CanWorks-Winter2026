@@ -96,8 +96,6 @@ CanWorks-Winter2026/
 │   ├── cloudbuild.yaml
 │   └── package.json
 │
-├── ENV_SETUP_GUIDE.md          # Step-by-step key creation guide
-├── TECHNICAL_BRIEF.md          # Architecture deep-dive
 └── README.md
 ```
 
@@ -194,20 +192,20 @@ Admin accounts can only be created via the Supabase dashboard:
 
 ```
 ┌──────────────────┐       ┌──────────────────────────┐
-│  Next.js 16      │       │  FastAPI Backend          │
-│  (Cloud Run)     │──────>│  (Cloud Run)              │
-│                  │  JWT  │                            │
-│  React 19 + TS   │<──────│  Uvicorn ASGI Server      │
-│  Tailwind + MUI  │       │                            │
-└──────────────────┘       │  Recommendation Engine     │
-        │                  │  - FastEmbed (384-dim)     │
-        │                  │  - Cosine Similarity       │
-        v                  │  - Skill Boost Scoring     │
-┌──────────────────┐       │                            │
-│  Supabase        │       │  Email Outreach Engine     │
-│  - Auth (JWT)    │       │  - Gemini AI Drafts        │
-│  - Storage (PDF) │<──────│  - Gmail OAuth Send        │
-│  - PostgreSQL    │       │  - Content Moderation      │
+│  Next.js 16      │       │  FastAPI Backend         │
+│  (Cloud Run)     │──────>│  (Cloud Run)             │
+│                  │  JWT  │                          │
+│  React 19 + TS   │<──────│  Uvicorn ASGI Server     │
+│  Tailwind + MUI  │       │                          │
+└──────────────────┘       │  Recommendation Engine   │
+        │                  │  - FastEmbed (384-dim)   │
+        │                  │  - Cosine Similarity     │
+        v                  │  - Skill Boost Scoring   │
+┌──────────────────┐       │                          │
+│  Supabase        │       │  Email Outreach Engine   │
+│  - Auth (JWT)    │       │  - Gemini AI Drafts      │
+│  - Storage (PDF) │<──────│  - Gmail OAuth Send      │
+│  - PostgreSQL    │       │  - Content Moderation    │
 │    + pgvector    │       └──────────────────────────┘
 └──────────────────┘
 ```
