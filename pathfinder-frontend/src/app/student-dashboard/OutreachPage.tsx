@@ -240,7 +240,42 @@ export function OutreachPage() {
                 </CardContent>
             </Card>
 
-            {/* Section B - Startup Companies */}
+            {/* Section B - Gmail Connection */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Mail className="w-5 h-5" />
+                        Gmail Connection
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {gmailLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Checking Gmail status...
+                        </div>
+                    ) : gmailConnected ? (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-sm font-medium text-green-800">
+                                Email connected: {gmailEmail || 'Gmail account'}
+                            </p>
+                            <p className="text-xs text-green-600 mt-1">Ready to send outreach emails.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <p className="text-sm text-slate-500">
+                                Connect your Gmail account to send outreach emails directly from the platform.
+                            </p>
+                            <Button onClick={handleConnectGmail}>
+                                <Mail className="w-4 h-4 mr-2" />
+                                Connect Gmail
+                            </Button>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Section C - Startup Companies */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -328,41 +363,6 @@ export function OutreachPage() {
                             {generateError && (
                                 <p className="text-sm text-red-600">{generateError}</p>
                             )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Section C - Gmail Connection */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Mail className="w-5 h-5" />
-                        Gmail Connection
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {gmailLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Checking Gmail status...
-                        </div>
-                    ) : gmailConnected ? (
-                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm font-medium text-green-800">
-                                Email connected: {gmailEmail || 'Gmail account'}
-                            </p>
-                            <p className="text-xs text-green-600 mt-1">Ready to send outreach emails.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            <p className="text-sm text-slate-500">
-                                Connect your Gmail account to send outreach emails directly from the platform.
-                            </p>
-                            <Button onClick={handleConnectGmail}>
-                                <Mail className="w-4 h-4 mr-2" />
-                                Connect Gmail
-                            </Button>
                         </div>
                     )}
                 </CardContent>
