@@ -13,6 +13,7 @@ interface ExplorePageProps {
     total: number;
     initialSelectedJob?: Job | null;
     onConsumeSelectedJob?: () => void;
+    onSwitchTab?: (tab: string) => void;
 }
 
 // Application form modal
@@ -199,7 +200,7 @@ function ApplicationModal({
     );
 }
 
-export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelectedJob, onConsumeSelectedJob }: ExplorePageProps) {
+export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelectedJob, onConsumeSelectedJob, onSwitchTab }: ExplorePageProps) {
     const { savedJobs, toggleSave } = useSavedJobs();
     const { user } = useUser<'student'>();
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -530,7 +531,7 @@ export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelect
                         <p className="text-sm text-gray-600 mb-4">
                             Send your profile to hiring managers at selected startups
                         </p>
-                        <Button variant="outline" size="sm" className="w-full">
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => onSwitchTab?.('outreach')}>
                             <Mail className="w-4 h-4 mr-2" />
                             Email Feature
                         </Button>
