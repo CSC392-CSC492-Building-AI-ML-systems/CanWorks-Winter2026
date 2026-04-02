@@ -3,7 +3,7 @@ from database import SessionLocal
 from models import Job
 from fastembed import TextEmbedding
 
-model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
 
 
 def compute():

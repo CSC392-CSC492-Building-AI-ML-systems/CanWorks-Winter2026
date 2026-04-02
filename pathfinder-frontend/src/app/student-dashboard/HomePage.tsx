@@ -159,7 +159,7 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
         {savedJobDetails.length === 0 ? (
           <p className="text-gray-600">You have no saved jobs right now.</p>
         ) : (
-          <Slider {...carouselSettings}>
+          <Slider {...carouselSettings} className='px-4'>
             {savedJobDetails.map(job => (
               <div key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
                 <JobCard
@@ -176,8 +176,8 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
         {/* Recommended For You Carousel */}
         <section>
             <h2 className="text-2xl mb-6">Recommended For You</h2>
-            <div className="relative px-12">
-            <Slider {...carouselSettings}>
+            <div className="relative">
+            <Slider {...carouselSettings} className='px-4'>
                 {recommendedJobs.map((job) => (
                 <div key={job.id} className="px-2 cursor-pointer" onClick={() => setSelectedJob(job)}>
                     <JobCard
@@ -197,8 +197,8 @@ export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = und
             <p className="text-gray-600 mb-6">
             Roles that match your skills but might be outside your usual search
             </p>
-            <div className="relative px-12">
-            <Slider {...carouselSettings}>
+            <div className="relative">
+            <Slider {...carouselSettings} className='px-4'>
                 {wildcardJobs.map((job) => (
                 <div key={job.id} className="px-2 cursor-pointer" onClick={() => setSelectedJob(job)}>
                     <JobCard

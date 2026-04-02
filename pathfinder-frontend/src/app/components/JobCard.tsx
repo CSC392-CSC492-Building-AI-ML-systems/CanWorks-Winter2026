@@ -41,19 +41,19 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
     })();
 
     return (
-        <Card className="p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 space-y-3">
+        <Card className="p-6 hover:shadow-md transition-shadow h-full flex flex-col">
+        <div className="flex items-start justify-between gap-4 flex-1">
+            <div className="flex-1 space-y-3 min-h-0 flex flex-col">
             <div>
-                <h3 className="text-lg mb-1">{job.title}</h3>
+                <h3 className="text-lg mb-1 line-clamp-2">{job.title}</h3>
                 <div className="flex items-center gap-2">
-                    <p className="text-gray-600">{job.employer}</p>
+                    <p className="text-gray-600 line-clamp-1">{job.employer}</p>
                     {job.employer_website && (
                         <a
                             href={job.employer_website.startsWith('http') ? job.employer_website : `https://${job.employer_website}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 text-sm hover:underline"
+                            className="text-blue-600 text-sm hover:underline truncate"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {new URL(job.employer_website.startsWith('http') ? job.employer_website : `https://${job.employer_website}`).hostname.replace('www.', '')}
@@ -73,7 +73,7 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
                 </div>
             </div>
 
-            <p className="text-sm text-gray-700 line-clamp-2">{job.description}</p>
+            <p className="text-sm text-gray-700 line-clamp-3 flex-1">{job.description}</p>
 
             <div className="flex flex-wrap gap-2">
                 {job.employment_type && (
@@ -93,12 +93,12 @@ export function JobCard({ job, isSaved, onToggleSave, onApply, applied }: JobCar
                 )}
             </div>
 
-            <div className="flex items-center gap-4 text-xs text-gray-500">
+            <div className="flex items-center gap-4 text-xs text-gray-500 mt-auto">
                 {job.created_at && <span>Posted {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}</span>}
             </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 items-end">
             <Button
                 variant="ghost"
                 size="icon"
