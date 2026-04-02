@@ -3,7 +3,7 @@ import Slider from 'react-slick';
 import { Card } from '@/app/components/globalComponents';
 import { JobCard } from '@/app/components/JobCard';
 import JobDetailsSidebar from '@/app/components/JobDetailsSidebar';
-import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BarChart3, Bookmark, Bell, ChevronLeft, ChevronRight, X, AlertTriangle } from 'lucide-react';
 import type { Job } from '@/types';
 import { useSavedJobs } from '@/app/hooks/useSavedJobs';
 
@@ -31,16 +31,10 @@ function PrevArrow(props: any) {
   );
 }
 
-export function HomePage({
-  totalJobs = 0,
-  jobs = [],
-  recommendedJobs: propRecommended = undefined,
-}: {
-  totalJobs: number,
-  jobs: Job[],
-  recommendedJobs?: Job[]
-}) {
-    const { savedJobs, savedJobDetails, toggleSave, loading } = useSavedJobs();
+export function HomePage({ totalJobs = 0, recommendedJobs: propRecommended = undefined, onSwitchTab, onViewJobInExplore }: { totalJobs: number, recommendedJobs?: Job[], onSwitchTab?: (tab: string) => void, onViewJobInExplore?: (job: Job) => void }) {
+    const { savedJobs, savedJobDetails, toggleSave, loading, removedJobs, clearRemovedJobs } = useSavedJobs();
+    const [fetchedJobs, setFetchedJobs] = useState<Job[]>([]);
+    const [loadingJobs, setLoadingJobs] = useState(true);
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   if (loading) {
@@ -114,6 +108,28 @@ export function HomePage({
             </Card>
         </div>
         
+        {/* Removed Jobs Banner */}
+        {removedJobs.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-800 mb-1">
+                        The following jobs you saved are no longer available:
+                    </p>
+                    <ul className="text-sm text-amber-700 space-y-1">
+                        {removedJobs.map((job, i) => (
+                            <li key={i}>
+                                {job.title}{job.employer ? ` at ${job.employer}` : ''}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+                <button onClick={clearRemovedJobs} className="p-1 rounded hover:bg-amber-100 shrink-0">
+                    <X className="w-4 h-4 text-amber-600" />
+                </button>
+            </div>
+        )}
+
         <section>
         <h2 className="text-2xl mb-6">Saved Jobs</h2>
 
@@ -173,7 +189,7 @@ export function HomePage({
             </div>
         </section>
 
-        <JobDetailsSidebar job={selectedJob} onClose={() => setSelectedJob(null)} />
+        <JobDetailsSidebar job={selectedJob} onClose={() => setSelectedJob(null)} onViewInExplore={onViewJobInExplore ? () => { if (selectedJob) { onViewJobInExplore(selectedJob); setSelectedJob(null); } } : undefined} />
         </div>
     );
 }

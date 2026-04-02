@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { JobCard } from '@/app/components/JobCard';
-import { Card, CheckBox, Label, Input, Button } from '@/app/components/globalComponents';
-import { Search, Bell, BellRing, Mail, Send, X, FileText, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Card, CheckBox, Label, Input, Button, Badge } from '@/app/components/globalComponents';
+import { Search, Bell, BellRing, Mail, MapPin, Briefcase, Send, X, FileText, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { SavedSearch, Job, JobSkill, StudentUserData } from '@/types';
 import JobDetailsSidebar from '@/app/components/JobDetailsSidebar';
 import { useSavedJobs } from "@/app/hooks/useSavedJobs";
@@ -11,10 +11,8 @@ import fastAxiosInstance from '@/axiosConfig/axiosfig';
 interface ExplorePageProps {
     jobs: Job[];
     total: number;
-    page: number;
-    pageSize: number;
-    isLoading?: boolean;
-    onPageChange: (page: number) => void;
+    initialSelectedJob?: Job | null;
+    onConsumeSelectedJob?: () => void;
 }
 
 // Application form modal
@@ -201,16 +199,34 @@ function ApplicationModal({
     );
 }
 
-export function ExplorePage({ jobs = [], total = 0, page = 1, pageSize = 10, isLoading = false, onPageChange }: ExplorePageProps) {
+export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelectedJob, onConsumeSelectedJob }: ExplorePageProps) {
     const { savedJobs, toggleSave } = useSavedJobs();
     const { user } = useUser<'student'>();
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+    useEffect(() => {
+        if (initialSelectedJob) {
+            setSelectedJob(initialSelectedJob);
+            onConsumeSelectedJob?.();
+        }
+    }, [initialSelectedJob]);
     const [applyingJob, setApplyingJob] = useState<Job | null>(null);
+    const [jobs, setJobs] = useState<Job[]>(_jobs);
+    const [total, setTotal] = useState<number>(_total);
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
 
     const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
+        fastAxiosInstance.get('/api/jobs', { params: { page: 1, page_size: 100 } })
+            .then(res => {
+                setJobs(res.data.jobs || []);
+                setTotal(res.data.total || 0);
+            })
+            .catch(error => console.error('Failed to fetch jobs', error));
+
         fastAxiosInstance.get('/api/applications/mine', { params: { page: 1, page_size: 100 } })
             .then(res => {
                 const ids = new Set<string>(res.data.applications.map((a: { job_id: string }) => a.job_id));
@@ -323,18 +339,21 @@ export function ExplorePage({ jobs = [], total = 0, page = 1, pageSize = 10, isL
         return true;
     });
 
-    const totalJobs = filteredJobs.length;
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    // Sort by most recent first
+    const sortedJobs = [...filteredJobs].sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+    });
 
-    const canGoPrev = page > 1;
-    const canGoNext = page < totalPages;
+    const totalJobs = sortedJobs.length;
+    const totalPages = Math.ceil(totalJobs / pageSize);
+    const paginatedJobs = sortedJobs.slice((page - 1) * pageSize, page * pageSize);
 
-    const handlePageChange = (nextPage: number) => {
-        if (nextPage < 1 || nextPage > totalPages || nextPage === page || isLoading) {
-            return;
-        }
-        onPageChange(nextPage);
-    };
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [filters]);
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -524,13 +543,15 @@ export function ExplorePage({ jobs = [], total = 0, page = 1, pageSize = 10, isL
                         <h2 className="text-2xl">
                             {totalJobs} Job{totalJobs !== 1 ? 's' : ''} Found
                         </h2>
+                        {totalPages > 1 && (
+                            <p className="text-sm text-gray-500">
+                                Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalJobs)} of {totalJobs}
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-4">
-                        {isLoading && (
-                            <Card className="p-4 text-center text-gray-600">Loading jobs...</Card>
-                        )}
-                        {filteredJobs.map(job => (
+                        {paginatedJobs.map(job => (
                             <div key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
                                 <JobCard
                                     job={job}
@@ -551,33 +572,40 @@ export function ExplorePage({ jobs = [], total = 0, page = 1, pageSize = 10, isL
                         </Card>
                     )}
 
-                    <Card className="p-4">
-                        <div className="flex items-center justify-between gap-4">
-                            <p className="text-sm text-gray-600">
-                                Page {page} of {totalPages}
-                            </p>
-                            <div className="flex items-center gap-2">
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </Button>
+
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                                 <Button
-                                    variant="outline"
+                                    key={p}
+                                    variant={p === page ? 'default' : 'outline'}
                                     size="sm"
-                                    onClick={() => handlePageChange(page - 1)}
-                                    disabled={!canGoPrev || isLoading}
+                                    onClick={() => setPage(p)}
+                                    className="min-w-[36px]"
                                 >
-                                    <ChevronLeft className="w-4 h-4 mr-1" />
-                                    Previous
+                                    {p}
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handlePageChange(page + 1)}
-                                    disabled={!canGoNext || isLoading}
-                                >
-                                    Next
-                                    <ChevronRight className="w-4 h-4 ml-1" />
-                                </Button>
-                            </div>
+                            ))}
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </Button>
                         </div>
-                    </Card>
+                    )}
                 </main>
             </div>
 

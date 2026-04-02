@@ -12,6 +12,22 @@ import { StepQualifications } from './wizard/StepQualifications';
 import { StepReviewSave } from './wizard/StepReviewSave';
 import type { JobDescriptionFormData, Template } from '@/types';
 
+function parseResponsibilities(raw: unknown): string[] {
+    if (Array.isArray(raw)) return raw.length ? raw : [''];
+    if (typeof raw !== 'string' || !raw.trim()) return [''];
+    // Handle PostgreSQL array literal: {"item1","item2","item3"}
+    if (raw.startsWith('{') && raw.endsWith('}')) {
+        const inner = raw.slice(1, -1);
+        // Split on "," boundary (comma between closing and opening quotes)
+        const items = inner.match(/"([^"]*)"/g);
+        if (items) return items.map(s => s.replace(/^"|"$/g, '')).filter(s => s.trim());
+        // Fallback: split by comma for unquoted values
+        return inner.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    // Fallback: newline-separated
+    return raw.split('\n').filter(s => s.trim());
+}
+
 const STEP_LABELS = [
     'Job Basics',
     'Description',
@@ -70,7 +86,7 @@ export function JobDescriptionWizard({ jobId, templateData, onComplete, onCancel
                     location_city: job.city || '',
                     location_province: job.province || '',
                     job_description: job.description || '',
-                    responsibilities: job.responsibilities?.length ? job.responsibilities : [''],
+                    responsibilities: parseResponsibilities(job.responsibilities),
                     required_skills: (job.skills || [])
                         .filter((s: any) => s.skill_type === 'required')
                         .map((s: any) => ({ skill_id: s.skill_id, skill_name: s.skill_name })),
@@ -99,7 +115,7 @@ export function JobDescriptionWizard({ jobId, templateData, onComplete, onCancel
                 location_city: templateData.city || '',
                 location_province: templateData.province || '',
                 job_description: templateData.job_description || '',
-                responsibilities: templateData.responsibilities?.length ? templateData.responsibilities : [''],
+                responsibilities: parseResponsibilities(templateData.responsibilities),
                 qualifications: templateData.qualifications || '',
                 compensation_min: templateData.compensation_min,
                 compensation_max: templateData.compensation_max,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/globalComponents';
 import { Header } from '@/app/components/header'
@@ -26,14 +26,16 @@ export default function StudentDashboardPage() {
 
 function StudentDashboardContent() {
     const searchParams = useSearchParams();
-    const defaultTab = useMemo(() => searchParams.get('tab') || 'home', [searchParams]);
+    const tabFromUrl = searchParams.get('tab') || 'home';
     const [jobs, setJobs] = useState<Job[]>([]);
     const [total, setTotal] = useState<number>(0);
     const [recommended, setRecommended] = useState<Job[]>([]);
-    const [jobsLoading, setJobsLoading] = useState<boolean>(false);
-    const [jobsPage, setJobsPage] = useState<number>(1);
-    const jobsPageSize = 10;
-    const [activeTab, setActiveTab] = useState(defaultTab);
+    const [activeTab, setActiveTab] = useState(tabFromUrl);
+    const [sharedSelectedJob, setSharedSelectedJob] = useState<Job | null>(null);
+
+    useEffect(() => {
+        setActiveTab(tabFromUrl);
+    }, [tabFromUrl]);
 
     useEffect(() => {
         fetchJobs(1);
@@ -84,7 +86,7 @@ function StudentDashboardContent() {
                         >
                         </Header>
 
-                        <Tabs defaultValue={defaultTab} onValueChange={setActiveTab} className="space-y-6">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                         <TabsList className="mb-6">
                             <TabsTrigger value="home" className="flex items-center gap-2">
                             <BarChart3 className="w-4 h-4" />
@@ -117,19 +119,12 @@ function StudentDashboardContent() {
                         </TabsList>
 
                         <TabsContent value="home" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                            <HomePage totalJobs={total} jobs={jobs} recommendedJobs={recommended}>
+                            <HomePage totalJobs={total} recommendedJobs={recommended} onSwitchTab={setActiveTab} onViewJobInExplore={(job) => { setSharedSelectedJob(job); setActiveTab('explore'); }}>
                             </HomePage>
                         </TabsContent>
 
                         <TabsContent value="explore" className="space-y-4 animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
-                                <ExplorePage
-                                    jobs={jobs}
-                                    total={total}
-                                    page={jobsPage}
-                                    pageSize={jobsPageSize}
-                                    isLoading={jobsLoading}
-                                    onPageChange={fetchJobs}
-                                >
+                                <ExplorePage jobs={jobs} total={total} initialSelectedJob={sharedSelectedJob} onConsumeSelectedJob={() => setSharedSelectedJob(null)}>
                                 </ExplorePage>
                         </TabsContent>
 
