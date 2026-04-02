@@ -40,12 +40,17 @@ export function SignInPage() {
         try {
             if (!formData.email || !formData.password) {
                 setError("Email and password are required.");
+                return;
             }
 
             const {user, error} = await signIn(formData.email, formData.password);
 
             if (error) {
-                setError(error.message);
+                if (/invalid refresh token|refresh token not found/i.test(error.message)) {
+                    setError("Your previous session expired. Please sign in again.");
+                } else {
+                    setError(error.message);
+                }
             }
         } catch (err) {
             setError("Something went wrong. Please try again.");

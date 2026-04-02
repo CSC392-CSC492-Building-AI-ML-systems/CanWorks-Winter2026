@@ -47,6 +47,17 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const isRefreshTokenError = (error: AuthError | null): boolean => {
+        if (!error?.message) return false;
+        return /invalid refresh token|refresh token not found/i.test(error.message);
+    };
+
+    const clearLocalSession = async () => {
+        // Local scope avoids server-side refresh-token revocation failures when token is already invalid.
+        await supabase.auth.signOut({ scope: 'local' });
+        setUser(null);
+    };
+
     const signUpContext = async (email: string, password: string, userData: UserData): UserMethodReturn => {
         const { data: { user: supaUser }, error } = await supabase.auth.signUp({
             email,
@@ -70,6 +81,11 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
 
     const signInContext = async (email: string, password: string): UserMethodReturn => {
         const { data: { user: supaUser }, error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (isRefreshTokenError(error)) {
+            await clearLocalSession();
+            return { user: null, error: new AuthError('Your session expired. Please sign in again.') };
+        }
 
         if (!error && supaUser) {
             const newUser = convertUser(supaUser);
@@ -152,6 +168,12 @@ export function UserProvider<T extends UserType | undefined = undefined>({childr
             setLoading(true);
 
             const { data: { user }, error } = await supabase.auth.getUser();
+
+            if (isRefreshTokenError(error)) {
+                await clearLocalSession();
+                setLoading(false);
+                return;
+            }
 
             if (!error && user) {
                 const currentUser = convertUser(user);
