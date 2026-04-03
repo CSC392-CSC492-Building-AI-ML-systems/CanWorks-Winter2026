@@ -306,6 +306,7 @@ export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelect
 
         if (normalized === 'full time') return 'full-time';
         if (normalized === 'part time') return 'part-time';
+        if (normalized === 'internship') return 'intern';
 
         return normalized.replace(/\s+/g, '-');
     };
