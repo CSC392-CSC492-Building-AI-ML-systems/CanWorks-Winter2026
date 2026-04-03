@@ -496,17 +496,6 @@ export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelect
                                 />
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="keywords">Keyword Search</Label>
-                                    <Input
-                                        id="keywords"
-                                        value={filters.keywords}
-                                        onChange={(e) => setFilters({ ...filters, keywords: e.target.value })}
-                                        placeholder="Skills, keywords"
-                                    />
-                                    <p className="text-xs text-gray-500">Separate with commas</p>
-                                </div>
-
-                                <div className="space-y-2">
                                     <Label htmlFor="location">Location</Label>
                                     <Input
                                         id="location"
@@ -516,10 +505,10 @@ export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelect
                                     />
                                 </div>
 
-                                <Button onClick={saveSearch} variant="outline" className="w-full" size="sm">
+                                {/* <Button onClick={saveSearch} variant="outline" className="w-full" size="sm">
                                     <Bell className="w-4 h-4 mr-2" />
                                     Save This Search
-                                </Button>
+                                </Button> */}
                             </div>
                         </div>
                     </Card>
