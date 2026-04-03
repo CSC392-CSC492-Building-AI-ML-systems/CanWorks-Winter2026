@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, get_current_user_with_metadata
 from database import get_db
-from models import Job, JobSkill, Skill
+from models import Job, JobSkill, Skill, Application
 from schemas import (
     JobDescriptionCreate,
     JobDescriptionUpdate,
@@ -331,5 +331,11 @@ def delete_job_description(
     job = _get_owned_job(job_id, user_id, db)
     job.deleted_at = datetime.now(timezone.utc)
     job.updated_at = datetime.now(timezone.utc)
+
+    # Update all applications for this job to "job_deleted"
+    db.query(Application).filter(
+        Application.job_id == job_id
+    ).update({"status": "job_deleted_by_employer", "updated_at": datetime.now(timezone.utc)})
+
     db.commit()
     return {"message": "Job description deleted"}

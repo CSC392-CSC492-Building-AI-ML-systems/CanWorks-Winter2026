@@ -19,6 +19,7 @@ const STATUS_COLORS: Record<ApplicationStatus, string> = {
     rejected: 'bg-red-100 text-red-700',
     hired: 'bg-emerald-100 text-emerald-700',
     job_deleted: 'bg-orange-100 text-orange-700',
+    job_deleted_by_employer: 'bg-orange-100 text-orange-700',
 };
 
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
@@ -28,7 +29,8 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
     offer: 'Offer Extended',
     rejected: 'Rejected',
     hired: 'Hired',
-    job_deleted: 'Job Removed',
+    job_deleted: 'Job Removed by Admin',
+    job_deleted_by_employer: 'Job Removed by Employer',
 };
 
 export function EmployerAnalyticsPage() {

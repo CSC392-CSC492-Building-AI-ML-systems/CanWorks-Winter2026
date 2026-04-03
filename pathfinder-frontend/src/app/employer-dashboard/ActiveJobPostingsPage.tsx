@@ -92,7 +92,6 @@ export function ActiveJobPostingsPage() {
                         job={job}
                         onEdit={() => setEditingJobId(job.id)}
                         onDuplicate={handleDuplicate}
-                        onUnpublish={handleUnpublish}
                         onDelete={handleDelete}
                     />
                 ))}

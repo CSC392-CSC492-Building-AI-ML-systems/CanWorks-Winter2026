@@ -177,7 +177,7 @@ export interface SkillOption {
 }
 
 // Application types
-export type ApplicationStatus = 'pending' | 'reviewing' | 'interview' | 'offer' | 'rejected' | 'hired' | 'job_deleted';
+export type ApplicationStatus = 'pending' | 'reviewing' | 'interview' | 'offer' | 'rejected' | 'hired' | 'job_deleted' | 'job_deleted_by_employer';
 
 export interface ApplicationItem {
     id: string;
