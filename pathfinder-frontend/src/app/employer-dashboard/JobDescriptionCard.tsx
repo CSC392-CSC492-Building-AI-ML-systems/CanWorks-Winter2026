@@ -58,30 +58,30 @@ export function JobDescriptionCard({ job, onEdit, onDuplicate, onDelete, onPubli
                     {/* Right side: action buttons */}
                     <div className="flex items-center gap-1 shrink-0">
                         {onEdit && (
-                            <Button variant="ghost" size="icon" onClick={() => onEdit(job.id)} title="Edit">
-                                <Pencil className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" onClick={() => onEdit(job.id)}>
+                                <Pencil className="w-4 h-4 mr-1" />Edit
                             </Button>
                         )}
                         {onDuplicate && (
-                            <Button variant="ghost" size="icon" onClick={() => onDuplicate(job.id)} title="Duplicate">
-                                <Copy className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" onClick={() => onDuplicate(job.id)}>
+                                <Copy className="w-4 h-4 mr-1" />Duplicate
                             </Button>
                         )}
                         {onPublish && job.status === 'draft' && (
-                            <Button variant="ghost" size="icon" onClick={() => onPublish(job.id)} title="Publish">
-                                <Send className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" onClick={() => onPublish(job.id)}>
+                                <Send className="w-4 h-4 mr-1" />Publish
                             </Button>
                         )}
                         {onUnpublish && job.status === 'published' && (
-                            <Button variant="ghost" size="icon" onClick={() => onUnpublish(job.id)} title="Unpublish">
-                                <XCircle className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" onClick={() => onUnpublish(job.id)}>
+                                <XCircle className="w-4 h-4 mr-1" />Unpublish
                             </Button>
                         )}
                         {onDelete && (
                             <AlertDialog>
                                 <AlertDialogTrigger>
-                                    <Button variant="ghost" size="icon" title="Delete">
-                                        <Trash2 className="w-4 h-4 text-red-500" />
+                                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600">
+                                        <Trash2 className="w-4 h-4 mr-1" />Delete
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
