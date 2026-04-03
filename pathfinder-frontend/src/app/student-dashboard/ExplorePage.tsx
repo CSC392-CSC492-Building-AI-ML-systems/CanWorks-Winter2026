@@ -300,6 +300,16 @@ export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelect
         }));
     };
 
+    const normalizeEmploymentType = (value?: string | null) => {
+        const normalized = value?.trim().toLowerCase();
+        if (!normalized) return '';
+
+        if (normalized === 'full time') return 'full-time';
+        if (normalized === 'part time') return 'part-time';
+
+        return normalized.replace(/\s+/g, '-');
+    };
+
     const saveSearch = () => {
         const searchQuery = `${filters.keywords || 'All'} in ${filters.location || 'Any location'}`;
         const newSearch: SavedSearch = {
@@ -325,8 +335,9 @@ export function ExplorePage({ jobs: _jobs = [], total: _total = 0, initialSelect
     // Single unified filter for all jobs
     const filteredJobs = jobs.filter(job => {
         if (filters.types.length > 0) {
-            const jobType = (job.employment_type || '').toLowerCase();
-            if (!filters.types.map(t => t.toLowerCase()).includes(jobType)) return false;
+            const jobType = normalizeEmploymentType(job.employment_type);
+            const selectedTypes = filters.types.map(type => normalizeEmploymentType(type));
+            if (!selectedTypes.includes(jobType)) return false;
         }
         if (filters.location) {
             const jobLocation = `${job.city || ''}, ${job.province || ''}`.toLowerCase();
